@@ -1,20 +1,20 @@
-#include <SDL2/SDL_render.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <math.h>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
 
 #include "style.h"
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
+#define SCREEN_WIDTH 1920
+#define SCREEN_HEIGHT 1080
 
-#define BOARD_WIDTH 20
-#define BOARD_HEIGHT 20
+#define BOARD_WIDTH 48 // 1920 / 40 = 48 ?
+#define BOARD_HEIGHT 27 // 1080 / 40 = 27 ?
 
 #define CELL_WIDTH ((float)SCREEN_WIDTH / BOARD_WIDTH)
 #define CELL_HEIGHT ((float)SCREEN_HEIGHT / BOARD_HEIGHT)
@@ -154,18 +154,25 @@ agent random_agent(void) {
 	return a;
 }
 
-void initialize_agents(game *game) {
+void initialize_game(game *game) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
 		game->agents[i] = random_agent();
 
-		// qm_todo: remove this later.
+		// qm_todo: Remove this later.
 		game->agents[i].direction = i % 4;
 	}
-}
 
-void initialize_game(game *game)
-{
-        initialize_agents(game);
+        // qm_todo: Yes, they can happen to be on top of each other, but
+        // who cares. Maybe I'll fix it later.
+	for (size_t i = 0; i < FOOD_COUNT; ++i) {
+		game->food[i].pos_x = random_int_range(0, BOARD_WIDTH);
+		game->food[i].pos_y = random_int_range(0, BOARD_HEIGHT);
+	}
+
+	for (size_t i = 0; i < WALL_COUNT; ++i) {
+		game->walls[i].pos_x = random_int_range(0, BOARD_WIDTH);
+		game->walls[i].pos_y = random_int_range(0, BOARD_HEIGHT);
+	}
 }
 
 void render_agent(SDL_Renderer *renderer, const game *game, size_t index) {
@@ -190,7 +197,27 @@ void render_game(SDL_Renderer *renderer, const game *game) {
 		render_agent(renderer, game, i);
 	}
 
-	// qm_todo: food, walls.
+	const float FOOD_PADDING = 10.f;
+	for (size_t i = 0; i < FOOD_COUNT; ++i) {
+		filledCircleColor(renderer,
+				  (int)floorf(game->food[i].pos_x * CELL_WIDTH + CELL_WIDTH * 0.5f),
+				  (int)floorf(game->food[i].pos_y * CELL_HEIGHT + CELL_HEIGHT * 0.5f),
+				  (int)floorf(fminf(CELL_WIDTH, CELL_HEIGHT) * 0.5f - FOOD_PADDING),
+				  FOOD_COLOR);
+	}
+
+	const float WALL_PADDING = 4.f;
+	sdl_set_hex_color_to_draw_line(renderer, WALL_COLOR);
+	for (size_t i = 0; i < WALL_COUNT; ++i) {
+		SDL_Rect rect = {
+			(int)floorf(game->walls[i].pos_x * CELL_WIDTH + WALL_PADDING),
+			(int)floorf(game->walls[i].pos_y * CELL_HEIGHT + WALL_PADDING),
+			(int)floorf(CELL_WIDTH - 2 * WALL_PADDING),
+			(int)floorf(CELL_HEIGHT - 2 * WALL_PADDING),
+		};
+
+		scc(SDL_RenderFillRect(renderer, &rect));
+	}
 }
 
 int main(int argc, char *argv[]) {
@@ -202,7 +229,7 @@ int main(int argc, char *argv[]) {
 
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 	scp(renderer);
-	scc(SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH, SCREEN_HEIGHT));
+	// scc(SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH, SCREEN_HEIGHT));
 
 	game game;
 	initialize_game(&game);
