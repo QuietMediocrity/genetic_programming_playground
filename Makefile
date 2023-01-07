@@ -3,5 +3,5 @@ CFLAGS=-Wall -Wold-style-definition -ggdb -std=c11 -pedantic `pkg-config --cflag
 LIBS=`pkg-config --libs $(PKGS)` -lm
 OUTPUT_DIR_PATH = "output"
 
-gp: src/main.c src/style.h
-	$(CC) $(CFLAGS) -o $(OUTPUT_DIR_PATH)/gp src/main.c $(LIBS)
+debug: src/main.c src/style.h
+	$(CC) $(CFLAGS) -o $(OUTPUT_DIR_PATH)/debug src/main.c $(LIBS)

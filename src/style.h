@@ -3,8 +3,8 @@
 
 // qm_todo: replace strings with hex literals.
 
-#define BACKGROUND_COLOR 0x24292EFF
-#define LINE_COLOR 0x505050FF
-#define AGENT_COLOR 0x50A050FF
+#define BACKGROUND_COLOR 0xFF24292E
+#define LINE_COLOR 0xFF505050
+#define AGENT_COLOR 0xFF50A050
 
 #endif // !STYLE_H

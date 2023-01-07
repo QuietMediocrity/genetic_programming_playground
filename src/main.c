@@ -1,4 +1,3 @@
-#include <SDL2/SDL_render.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -6,6 +5,7 @@
 #include <assert.h>
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL2_gfxPrimitives.h>
 
 #include "style.h"
 
@@ -38,10 +38,10 @@ void scp(const void *ptr) // sdl check pointer
 
 void sdl_set_hex_color_to_draw_line(SDL_Renderer *renderer, Uint32 hex_color) {
 	scc(SDL_SetRenderDrawColor(renderer,
-				   (hex_color >> (3 * 8)) & 0xFF,
 				   (hex_color >> (2 * 8)) & 0xFF,
 				   (hex_color >> (1 * 8)) & 0xFF,
-				   (hex_color >> (0 * 8)) & 0xFF));
+				   (hex_color >> (0 * 8)) & 0xFF,
+				   (hex_color >> (3 * 8)) & 0xFF));
 }
 
 void render_board_grid(SDL_Renderer *renderer) {
@@ -61,6 +61,26 @@ typedef enum {
 	DIR_LEFT,
 	DIR_DOWN,
 } direction;
+
+/*
+ * This is used to render pointy triangular agents,
+ * where individual triangles are fit into 0-1 coordinate system
+ *    0 - - - - -> 1
+ *    | *
+ *    | ****
+ *    | *******
+ *    | *********  <- 0.5
+ *    | *******
+ *    | ****
+ *    | *
+ *    1
+ */
+float agents_dirs[4][6] = {
+	{ 0.0, 0.0, 1.0, 0.5, 0.0, 1.0 }, // DIR_RIGHT
+	{ 0.0, 1.0, 0.5, 0.0, 1.0, 1.0 }, // DIR_UP
+	{ 1.0, 0.0, 1.0, 1.0, 0.0, 0.5 }, // DIR_LEFT
+	{ 0.0, 0.0, 1.0, 0.0, 0.5, 1.0 }, // DIR_DOWN
+};
 
 typedef struct {
 	int pos_x, pos_y;
@@ -101,21 +121,27 @@ agent random_agent(void) {
 void initialize_agents(void) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
 		agents[i] = random_agent();
+
+		// qm_todo: remove this later.
+		agents[i].direction = i % 4;
 	}
 }
 
 void render_agent(SDL_Renderer *renderer, size_t index) {
-	sdl_set_hex_color_to_draw_line(renderer, AGENT_COLOR);
-	agent *a = &agents[index];
+	const float AGENT_PADDING = 6.f;
+	const float CELL_WIDTH_PADDING = CELL_WIDTH - AGENT_PADDING * 2;
+	const float CELL_HEIGHT_PADDING = CELL_HEIGHT - AGENT_PADDING * 2;
+	const agent *a = &agents[index];
 
-	SDL_Rect rect = {
-		(int)floorf(a->pos_x * CELL_WIDTH),
-		(int)floorf(a->pos_y * CELL_HEIGHT),
-		(int)floorf(CELL_WIDTH),
-		(int)floorf(CELL_HEIGHT),
-	};
+	const float x1 = agents_dirs[a->direction][0] * CELL_WIDTH_PADDING + a->pos_x * CELL_WIDTH + AGENT_PADDING;
+	const float y1 = agents_dirs[a->direction][1] * CELL_HEIGHT_PADDING + a->pos_y * CELL_HEIGHT + AGENT_PADDING;
+	const float x2 = agents_dirs[a->direction][2] * CELL_WIDTH_PADDING + a->pos_x * CELL_WIDTH + AGENT_PADDING;
+	const float y2 = agents_dirs[a->direction][3] * CELL_HEIGHT_PADDING + a->pos_y * CELL_HEIGHT + AGENT_PADDING;
+	const float x3 = agents_dirs[a->direction][4] * CELL_WIDTH_PADDING + a->pos_x * CELL_WIDTH + AGENT_PADDING;
+	const float y3 = agents_dirs[a->direction][5] * CELL_HEIGHT_PADDING + a->pos_y * CELL_HEIGHT + AGENT_PADDING;
 
-	scc(SDL_RenderFillRect(renderer, &rect));
+	filledTrigonColor(renderer, x1, y1, x2, y2, x3, y3, AGENT_COLOR);
+	aatrigonColor(renderer, x1, y1, x2, y2, x3, y3, AGENT_COLOR);
 }
 
 void render_agents(SDL_Renderer *renderer) {
