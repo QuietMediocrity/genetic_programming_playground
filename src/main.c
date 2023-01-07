@@ -36,27 +36,12 @@ void scp(const void *ptr) // sdl check pointer
 	}
 }
 
-Uint8 hex_to_decimal(char c) {
-	if ('0' <= c && c <= '9')
-		return c - '0';
-	if ('A' <= c && c <= 'F')
-		return c - 'A' + 10;
-
-	fprintf(stderr, "ERROR: Incorrect hex character provided: %c\n", c);
-	exit(1);
-}
-
-Uint8 parse_hex_byte(const char *hex_byte) {
-	return hex_to_decimal(*hex_byte) * 0x10 + hex_to_decimal(*(hex_byte + 1));
-}
-
-void sdl_set_hex_color_to_draw_line(SDL_Renderer *renderer, const char *hex_color) {
-	assert(strlen(hex_color) == 6);
+void sdl_set_hex_color_to_draw_line(SDL_Renderer *renderer, Uint32 hex_color) {
 	scc(SDL_SetRenderDrawColor(renderer,
-				   parse_hex_byte(hex_color + 0),
-				   parse_hex_byte(hex_color + 2),
-				   parse_hex_byte(hex_color + 4),
-				   255));
+				   (hex_color >> (3 * 8)) & 0xFF,
+				   (hex_color >> (2 * 8)) & 0xFF,
+				   (hex_color >> (1 * 8)) & 0xFF,
+				   (hex_color >> (0 * 8)) & 0xFF));
 }
 
 void render_board_grid(SDL_Renderer *renderer) {
