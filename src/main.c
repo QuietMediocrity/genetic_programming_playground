@@ -1,3 +1,4 @@
+#include <SDL2/SDL_render.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -19,6 +20,8 @@
 #define CELL_HEIGHT ((float)SCREEN_HEIGHT / BOARD_HEIGHT)
 
 #define AGENTS_COUNT 10
+#define FOOD_COUNT 15
+#define WALL_COUNT 8
 
 void scc(int code) // sdl check code
 {
@@ -82,12 +85,11 @@ float agents_dirs[4][6] = {
 	{ 0.0, 0.0, 1.0, 0.0, 0.5, 1.0 }, // DIR_DOWN
 };
 
-typedef struct {
-	int pos_x, pos_y;
-	direction direction;
-	int hunder;
-	int health;
-} agent;
+// state | environment | action | next_state
+
+typedef int agent_state;
+
+typedef enum { ENV_NOTHING = 0, ENV_AGENT, ENV_FOOD } environment;
 
 typedef enum {
 	AA_NOTHING = 0,
@@ -96,7 +98,41 @@ typedef enum {
 	AA_ATTACK,
 } agent_action;
 
-agent agents[AGENTS_COUNT];
+typedef struct {
+	agent_state current_state;
+	agent_state next_state;
+	environment environment;
+	agent_action action;
+} brain_cell;
+
+typedef struct {
+	size_t count;
+	brain_cell cells[];
+} brain;
+
+typedef struct {
+	int pos_x, pos_y;
+	direction direction;
+	int hunder;
+	int health;
+} agent;
+
+typedef struct {
+	int quantity;
+	int pos_x;
+	int pos_y;
+} food;
+
+typedef struct {
+	int pos_x;
+	int pos_y;
+} wall;
+
+typedef struct {
+	agent agents[AGENTS_COUNT];
+	food food[FOOD_COUNT];
+	wall walls[WALL_COUNT];
+} game;
 
 int random_int_range(int low, int high) {
 	return rand() % (high - low) + low;
@@ -118,20 +154,25 @@ agent random_agent(void) {
 	return a;
 }
 
-void initialize_agents(void) {
+void initialize_agents(game *game) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
-		agents[i] = random_agent();
+		game->agents[i] = random_agent();
 
 		// qm_todo: remove this later.
-		agents[i].direction = i % 4;
+		game->agents[i].direction = i % 4;
 	}
 }
 
-void render_agent(SDL_Renderer *renderer, size_t index) {
+void initialize_game(game *game)
+{
+        initialize_agents(game);
+}
+
+void render_agent(SDL_Renderer *renderer, const game *game, size_t index) {
 	const float AGENT_PADDING = 6.f;
 	const float CELL_WIDTH_PADDING = CELL_WIDTH - AGENT_PADDING * 2;
 	const float CELL_HEIGHT_PADDING = CELL_HEIGHT - AGENT_PADDING * 2;
-	const agent *a = &agents[index];
+	const agent *a = &game->agents[index];
 
 	const float x1 = agents_dirs[a->direction][0] * CELL_WIDTH_PADDING + a->pos_x * CELL_WIDTH + AGENT_PADDING;
 	const float y1 = agents_dirs[a->direction][1] * CELL_HEIGHT_PADDING + a->pos_y * CELL_HEIGHT + AGENT_PADDING;
@@ -144,10 +185,12 @@ void render_agent(SDL_Renderer *renderer, size_t index) {
 	aatrigonColor(renderer, x1, y1, x2, y2, x3, y3, AGENT_COLOR);
 }
 
-void render_agents(SDL_Renderer *renderer) {
+void render_game(SDL_Renderer *renderer, const game *game) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
-		render_agent(renderer, i);
+		render_agent(renderer, game, i);
 	}
+
+	// qm_todo: food, walls.
 }
 
 int main(int argc, char *argv[]) {
@@ -161,7 +204,8 @@ int main(int argc, char *argv[]) {
 	scp(renderer);
 	scc(SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH, SCREEN_HEIGHT));
 
-	initialize_agents();
+	game game;
+	initialize_game(&game);
 
 	int quit = 0;
 	while (!quit) {
@@ -179,7 +223,7 @@ int main(int argc, char *argv[]) {
 		scc(SDL_RenderClear(renderer));
 
 		render_board_grid(renderer);
-		render_agents(renderer);
+		render_game(renderer, &game);
 
 		SDL_RenderPresent(renderer);
 	}
