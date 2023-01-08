@@ -11,10 +11,11 @@
 #include "style.h"
 
 #define SCREEN_WIDTH 1920
-#define SCREEN_HEIGHT 1080
+#define SCREEN_HEIGHT 1015 // apparently I am using 65px for OS header and program header in windowed mode.
 
 #define BOARD_WIDTH 48 // 1920 / 40 = 48 ?
-#define BOARD_HEIGHT 27 // 1080 / 40 = 27 ?
+// #define BOARD_HEIGHT 27 // 1080 / 40 = 27 ?
+#define BOARD_HEIGHT 25 
 
 #define CELL_WIDTH ((float)SCREEN_WIDTH / BOARD_WIDTH)
 #define CELL_HEIGHT ((float)SCREEN_HEIGHT / BOARD_HEIGHT)
@@ -39,16 +40,14 @@ void scp(const void *ptr) // sdl check pointer
 	}
 }
 
-void sdl_set_hex_color_to_draw_line(SDL_Renderer *renderer, Uint32 hex_color) {
-	scc(SDL_SetRenderDrawColor(renderer,
-				   (hex_color >> (2 * 8)) & 0xFF,
-				   (hex_color >> (1 * 8)) & 0xFF,
-				   (hex_color >> (0 * 8)) & 0xFF,
-				   (hex_color >> (3 * 8)) & 0xFF));
-}
+#define HEX_COLOR(hex_color)             \
+	((hex_color) >> (2 * 8)) & 0xFF, \
+        ((hex_color) >> (1 * 8)) & 0xFF, \
+	((hex_color) >> (0 * 8)) & 0xFF, \
+	((hex_color) >> (3 * 8)) & 0xFF
 
 void render_board_grid(SDL_Renderer *renderer) {
-	sdl_set_hex_color_to_draw_line(renderer, LINE_COLOR);
+	scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(LINE_COLOR)));
 
 	for (int x = 1; x < BOARD_WIDTH; ++x) {
 		scc(SDL_RenderDrawLine(renderer, x * CELL_WIDTH, 0, x * CELL_WIDTH, SCREEN_HEIGHT));
@@ -162,8 +161,8 @@ void initialize_game(game *game) {
 		game->agents[i].direction = i % 4;
 	}
 
-        // qm_todo: Yes, they can happen to be on top of each other, but
-        // who cares. Maybe I'll fix it later.
+	// qm_todo: Yes, they can happen to be on top of each other, but
+	// who cares. Maybe I'll fix it later.
 	for (size_t i = 0; i < FOOD_COUNT; ++i) {
 		game->food[i].pos_x = random_int_range(0, BOARD_WIDTH);
 		game->food[i].pos_y = random_int_range(0, BOARD_HEIGHT);
@@ -199,15 +198,15 @@ void render_game(SDL_Renderer *renderer, const game *game) {
 
 	const float FOOD_PADDING = 10.f;
 	for (size_t i = 0; i < FOOD_COUNT; ++i) {
-		filledCircleColor(renderer,
-				  (int)floorf(game->food[i].pos_x * CELL_WIDTH + CELL_WIDTH * 0.5f),
-				  (int)floorf(game->food[i].pos_y * CELL_HEIGHT + CELL_HEIGHT * 0.5f),
-				  (int)floorf(fminf(CELL_WIDTH, CELL_HEIGHT) * 0.5f - FOOD_PADDING),
-				  FOOD_COLOR);
+		filledCircleRGBA(renderer,
+				 (int)floorf(game->food[i].pos_x * CELL_WIDTH + CELL_WIDTH * 0.5f),
+				 (int)floorf(game->food[i].pos_y * CELL_HEIGHT + CELL_HEIGHT * 0.5f),
+				 (int)floorf(fminf(CELL_WIDTH, CELL_HEIGHT) * 0.5f - FOOD_PADDING),
+				 HEX_COLOR(FOOD_COLOR));
 	}
 
 	const float WALL_PADDING = 4.f;
-	sdl_set_hex_color_to_draw_line(renderer, WALL_COLOR);
+	scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(WALL_COLOR)));
 	for (size_t i = 0; i < WALL_COUNT; ++i) {
 		SDL_Rect rect = {
 			(int)floorf(game->walls[i].pos_x * CELL_WIDTH + WALL_PADDING),
@@ -246,7 +245,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		sdl_set_hex_color_to_draw_line(renderer, BACKGROUND_COLOR);
+	        scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(BACKGROUND_COLOR)));
 		scc(SDL_RenderClear(renderer));
 
 		render_board_grid(renderer);
