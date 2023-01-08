@@ -1,3 +1,4 @@
+#include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keycode.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -116,6 +117,7 @@ typedef enum {
 	AA_ATTACK,
 	AA_TURN_LEFT,
 	AA_TURN_RIGHT,
+	AA_COUNT,
 } AgentAction;
 
 typedef struct {
@@ -217,6 +219,14 @@ Position random_empty_position(const Game *game) {
 	return result;
 }
 
+Environment random_environment(void) {
+	return random_int_range(0, ENV_COUNT);
+}
+
+AgentAction random_action(void) {
+	return random_int_range(0, AA_COUNT);
+}
+
 void initialize_game(Game *game) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
 		game->agents[i].pos = random_empty_position(game);
@@ -226,6 +236,13 @@ void initialize_game(Game *game) {
 
 		// qm_todo: Remove this later.
 		game->agents[i].direction = i % 4;
+
+		for (size_t j = 0; j < GENES_COUNT; ++j) {
+			game->chromosomes[i].genes[j].current_state = random_int_range(0, GENES_COUNT);
+			game->chromosomes[i].genes[j].environment = random_environment();
+			game->chromosomes[i].genes[j].action = random_action();
+			game->chromosomes[i].genes[j].next_state = random_int_range(0, GENES_COUNT);
+		}
 	}
 
 	// qm_todo: Yes, they can happen to be on top of each other, but who cares.
@@ -281,7 +298,8 @@ void render_game(SDL_Renderer *renderer, const Game *game) {
 				 HEX_COLOR(FOOD_COLOR));
 	}
 
-	const float WALL_PADDING = 4.f;
+	// const float WALL_PADDING = 4.f;
+	const float WALL_PADDING = 0.f;
 	scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(WALL_COLOR)));
 	for (size_t i = 0; i < WALLS_COUNT; ++i) {
 		SDL_Rect rect = {
@@ -320,7 +338,7 @@ Food *get_ptr_to_food_infront_of_agent(Game *game, Agent *agent) {
 	Position infront = get_position_infront_of_agent(agent);
 
 	for (size_t i = 0; i < FOOD_COUNT; ++i) {
-		if (positions_are_equal(game->food[i].pos, infront))
+		if (game->food[i].quantity > 0 && positions_are_equal(game->food[i].pos, infront))
 			return &game->food[i];
 	}
 
@@ -331,8 +349,8 @@ Agent *get_ptr_to_agent_infront_of_agent(Game *game, Agent *agent) {
 	Position infront = get_position_infront_of_agent(agent);
 
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
-                // qm_todo: do I need to check if agent[i] == *agent?
-                // when will it be the case?
+		// qm_todo: do I need to check if agent[i] == *agent?
+		// when will it be the case?
 		if (positions_are_equal(game->agents[i].pos, infront) && game->agents[i].health > 0)
 			return &game->agents[i];
 	}
@@ -352,18 +370,18 @@ Wall *get_ptr_to_wall_infront_of_agent(Game *game, Agent *agent) {
 }
 
 Environment interpret_environment_infront_of_agent(Game *game, size_t agent_index) {
-        Agent *agent = &game->agents[agent_index];
+	Agent *agent = &game->agents[agent_index];
 
-        // This order kind of serves as priority list.
+	// This order kind of serves as priority list.
 
-        if (get_ptr_to_food_infront_of_agent(game, agent) != NULL)
-                return ENV_FOOD;
+	if (get_ptr_to_food_infront_of_agent(game, agent) != NULL)
+		return ENV_FOOD;
 
-        if (get_ptr_to_agent_infront_of_agent(game, agent) != NULL)
-                return ENV_AGENT;
+	if (get_ptr_to_agent_infront_of_agent(game, agent) != NULL)
+		return ENV_AGENT;
 
-        if (get_ptr_to_wall_infront_of_agent(game, agent) != NULL)
-                return ENV_WALL;
+	if (get_ptr_to_wall_infront_of_agent(game, agent) != NULL)
+		return ENV_WALL;
 
 	return ENV_NOTHING;
 }
@@ -414,6 +432,7 @@ void execute_action(Game *game, size_t agent_index, AgentAction action) {
 		agent->direction = mod_int(agent->direction - 1, 4);
 		break;
 
+	case AA_COUNT:
 	default:
 		assert(0 && "This is not supposed to happen, fix the 'action' value.");
 		break;
@@ -431,9 +450,10 @@ void game_step(Game *game) {
 			if (gene->environment != interpret_environment_infront_of_agent(game, i))
 				continue;
 
-			if (game->agents[i].health > 0)
-				execute_action(game, i, gene->action);
+			if (game->agents[i].health == 0)
+				continue;
 
+			execute_action(game, i, gene->action);
 			game->agents[i].current_state = gene->next_state;
 		}
 	}
@@ -472,11 +492,15 @@ int main(int argc, char *argv[]) {
 			case SDL_QUIT: {
 				quit = 1;
 			} break;
-			case SDLK_r: {
-				initialize_game(&game);
-			} break;
-                        case SDLK_s: { // qm_todo: later on, make the ticks automatic after delta t, not manual.
-				game_step(&game);
+			case SDL_KEYDOWN: {
+				switch (event.key.keysym.sym) {
+				case SDLK_r: {
+					initialize_game(&game);
+				} break;
+				case SDLK_s: { // qm_todo: later on, make the ticks automatic after delta t, not manual.
+					game_step(&game);
+				} break;
+				}
 			} break;
 			}
 		}
