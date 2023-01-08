@@ -110,7 +110,12 @@ typedef struct {
 } brain;
 
 typedef struct {
-	int pos_x, pos_y;
+        int x;
+        int y;
+} position;
+
+typedef struct {
+        position pos;
 	direction direction;
 	int hunder;
 	int health;
@@ -118,13 +123,11 @@ typedef struct {
 
 typedef struct {
 	int quantity;
-	int pos_x;
-	int pos_y;
+        position pos;
 } food;
 
 typedef struct {
-	int pos_x;
-	int pos_y;
+        position pos;
 } wall;
 
 typedef struct {
@@ -132,6 +135,32 @@ typedef struct {
 	food food[FOOD_COUNT];
 	wall walls[WALL_COUNT];
 } game;
+
+bool positions_are_equal(position first, position second)
+{
+        return first.x == second.x && first.y == second.y;
+}
+
+bool is_cell_empty(const game* game, position pos)
+{
+        for (size_t i = 0; i < AGENTS_COUNT; ++i) {
+                if (positions_are_equal(game->agents[i].pos, pos)) {
+                        return false;
+                }
+        }
+        for (size_t i = 0; i < FOOD_COUNT; ++i) {
+                if (positions_are_equal(game->food[i].pos, pos)) {
+                        return false;
+                }
+        }
+        for (size_t i = 0; i < WALL_COUNT; ++i) {
+                if (positions_are_equal(game->walls[i].pos, pos)) {
+                        return false;
+                }
+        }
+        
+        return true;
+}
 
 int random_int_range(int low, int high) {
 	return rand() % (high - low) + low;
@@ -141,11 +170,34 @@ direction random_direction(void) {
 	return (direction)random_int_range(0, 4);
 }
 
-agent random_agent(void) {
+position random_position(void)
+{
+        position result = {
+                random_int_range(0, BOARD_WIDTH),
+                random_int_range(0, BOARD_HEIGHT)
+        };
+
+        return result;
+}
+
+position random_empty_position(const game* game)
+{
+        position result = random_position();
+        size_t it = 0;
+        const size_t MAX_IT = 100;
+
+        while (!is_cell_empty(game, result) && it < MAX_IT) {
+                result = random_position();
+        }
+
+        assert(it < MAX_IT);
+        return result;
+}
+
+agent random_agent(const game* game) {
 	agent a = { 0 };
 
-	a.pos_x = random_int_range(0, BOARD_WIDTH);
-	a.pos_y = random_int_range(0, BOARD_HEIGHT);
+        a.pos = random_empty_position(game);
 	a.direction = random_direction();
 	a.hunder = 100;
 	a.health = 100;
@@ -155,7 +207,7 @@ agent random_agent(void) {
 
 void initialize_game(game *game) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
-		game->agents[i] = random_agent();
+		game->agents[i] = random_agent(game);
 
 		// qm_todo: Remove this later.
 		game->agents[i].direction = i % 4;
@@ -164,13 +216,11 @@ void initialize_game(game *game) {
 	// qm_todo: Yes, they can happen to be on top of each other, but
 	// who cares. Maybe I'll fix it later.
 	for (size_t i = 0; i < FOOD_COUNT; ++i) {
-		game->food[i].pos_x = random_int_range(0, BOARD_WIDTH);
-		game->food[i].pos_y = random_int_range(0, BOARD_HEIGHT);
+		game->food[i].pos = random_empty_position(game);
 	}
 
 	for (size_t i = 0; i < WALL_COUNT; ++i) {
-		game->walls[i].pos_x = random_int_range(0, BOARD_WIDTH);
-		game->walls[i].pos_y = random_int_range(0, BOARD_HEIGHT);
+		game->walls[i].pos = random_empty_position(game);
 	}
 }
 
@@ -180,12 +230,12 @@ void render_agent(SDL_Renderer *renderer, const game *game, size_t index) {
 	const float CELL_HEIGHT_PADDING = CELL_HEIGHT - AGENT_PADDING * 2;
 	const agent *a = &game->agents[index];
 
-	const float x1 = agents_dirs[a->direction][0] * CELL_WIDTH_PADDING + a->pos_x * CELL_WIDTH + AGENT_PADDING;
-	const float y1 = agents_dirs[a->direction][1] * CELL_HEIGHT_PADDING + a->pos_y * CELL_HEIGHT + AGENT_PADDING;
-	const float x2 = agents_dirs[a->direction][2] * CELL_WIDTH_PADDING + a->pos_x * CELL_WIDTH + AGENT_PADDING;
-	const float y2 = agents_dirs[a->direction][3] * CELL_HEIGHT_PADDING + a->pos_y * CELL_HEIGHT + AGENT_PADDING;
-	const float x3 = agents_dirs[a->direction][4] * CELL_WIDTH_PADDING + a->pos_x * CELL_WIDTH + AGENT_PADDING;
-	const float y3 = agents_dirs[a->direction][5] * CELL_HEIGHT_PADDING + a->pos_y * CELL_HEIGHT + AGENT_PADDING;
+	const float x1 = agents_dirs[a->direction][0] * CELL_WIDTH_PADDING + a->pos.x * CELL_WIDTH + AGENT_PADDING;
+	const float y1 = agents_dirs[a->direction][1] * CELL_HEIGHT_PADDING + a->pos.y * CELL_HEIGHT + AGENT_PADDING;
+	const float x2 = agents_dirs[a->direction][2] * CELL_WIDTH_PADDING + a->pos.x * CELL_WIDTH + AGENT_PADDING;
+	const float y2 = agents_dirs[a->direction][3] * CELL_HEIGHT_PADDING + a->pos.y * CELL_HEIGHT + AGENT_PADDING;
+	const float x3 = agents_dirs[a->direction][4] * CELL_WIDTH_PADDING + a->pos.x * CELL_WIDTH + AGENT_PADDING;
+	const float y3 = agents_dirs[a->direction][5] * CELL_HEIGHT_PADDING + a->pos.y * CELL_HEIGHT + AGENT_PADDING;
 
 	filledTrigonColor(renderer, x1, y1, x2, y2, x3, y3, AGENT_COLOR);
 	aatrigonColor(renderer, x1, y1, x2, y2, x3, y3, AGENT_COLOR);
@@ -199,8 +249,8 @@ void render_game(SDL_Renderer *renderer, const game *game) {
 	const float FOOD_PADDING = 10.f;
 	for (size_t i = 0; i < FOOD_COUNT; ++i) {
 		filledCircleRGBA(renderer,
-				 (int)floorf(game->food[i].pos_x * CELL_WIDTH + CELL_WIDTH * 0.5f),
-				 (int)floorf(game->food[i].pos_y * CELL_HEIGHT + CELL_HEIGHT * 0.5f),
+				 (int)floorf(game->food[i].pos.x * CELL_WIDTH + CELL_WIDTH * 0.5f),
+				 (int)floorf(game->food[i].pos.y * CELL_HEIGHT + CELL_HEIGHT * 0.5f),
 				 (int)floorf(fminf(CELL_WIDTH, CELL_HEIGHT) * 0.5f - FOOD_PADDING),
 				 HEX_COLOR(FOOD_COLOR));
 	}
@@ -209,8 +259,8 @@ void render_game(SDL_Renderer *renderer, const game *game) {
 	scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(WALL_COLOR)));
 	for (size_t i = 0; i < WALL_COUNT; ++i) {
 		SDL_Rect rect = {
-			(int)floorf(game->walls[i].pos_x * CELL_WIDTH + WALL_PADDING),
-			(int)floorf(game->walls[i].pos_y * CELL_HEIGHT + WALL_PADDING),
+			(int)floorf(game->walls[i].pos.x * CELL_WIDTH + WALL_PADDING),
+			(int)floorf(game->walls[i].pos.y * CELL_HEIGHT + WALL_PADDING),
 			(int)floorf(CELL_WIDTH - 2 * WALL_PADDING),
 			(int)floorf(CELL_HEIGHT - 2 * WALL_PADDING),
 		};

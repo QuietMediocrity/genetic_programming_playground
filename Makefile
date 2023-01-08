@@ -1,5 +1,5 @@
 PKGS=sdl2 SDL2_gfx
-CFLAGS=-Wall -Wold-style-definition -ggdb -std=c11 -pedantic `pkg-config --cflags $(PKGS)`
+CFLAGS=-Wall -Werror -Wold-style-definition -ggdb -std=c11 -pedantic `pkg-config --cflags $(PKGS)`
 LIBS=`pkg-config --libs $(PKGS)` -lm
 OUTPUT_DIR_PATH = "output"
 
