@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <math.h>
+#include <time.h>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
@@ -15,14 +16,17 @@
 
 #define BOARD_WIDTH 48 // 1920 / 40 = 48 ?
 // #define BOARD_HEIGHT 27 // 1080 / 40 = 27 ?
-#define BOARD_HEIGHT 25 
+#define BOARD_HEIGHT 25
 
 #define CELL_WIDTH ((float)SCREEN_WIDTH / BOARD_WIDTH)
 #define CELL_HEIGHT ((float)SCREEN_HEIGHT / BOARD_HEIGHT)
 
-#define AGENTS_COUNT 10
-#define FOOD_COUNT 15
-#define WALL_COUNT 8
+#define AGENTS_COUNT 32
+#define FOOD_COUNT 128
+#define WALLS_COUNT 128
+
+static_assert(AGENTS_COUNT + FOOD_COUNT + WALLS_COUNT <= BOARD_WIDTH * BOARD_HEIGHT,
+	      "Too many entities. You won't be able to fit all of them on game board.");
 
 void scc(int code) // sdl check code
 {
@@ -40,11 +44,9 @@ void scp(const void *ptr) // sdl check pointer
 	}
 }
 
-#define HEX_COLOR(hex_color)             \
-	((hex_color) >> (2 * 8)) & 0xFF, \
-        ((hex_color) >> (1 * 8)) & 0xFF, \
-	((hex_color) >> (0 * 8)) & 0xFF, \
-	((hex_color) >> (3 * 8)) & 0xFF
+#define HEX_COLOR(hex_color)                                                                               \
+	((hex_color) >> (2 * 8)) & 0xFF, ((hex_color) >> (1 * 8)) & 0xFF, ((hex_color) >> (0 * 8)) & 0xFF, \
+		((hex_color) >> (3 * 8)) & 0xFF
 
 void render_board_grid(SDL_Renderer *renderer) {
 	scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(LINE_COLOR)));
@@ -110,12 +112,12 @@ typedef struct {
 } brain;
 
 typedef struct {
-        int x;
-        int y;
+	int x;
+	int y;
 } position;
 
 typedef struct {
-        position pos;
+	position pos;
 	direction direction;
 	int hunder;
 	int health;
@@ -123,43 +125,41 @@ typedef struct {
 
 typedef struct {
 	int quantity;
-        position pos;
+	position pos;
 } food;
 
 typedef struct {
-        position pos;
+	position pos;
 } wall;
 
 typedef struct {
 	agent agents[AGENTS_COUNT];
 	food food[FOOD_COUNT];
-	wall walls[WALL_COUNT];
+	wall walls[WALLS_COUNT];
 } game;
 
-bool positions_are_equal(position first, position second)
-{
-        return first.x == second.x && first.y == second.y;
+bool positions_are_equal(position first, position second) {
+	return first.x == second.x && first.y == second.y;
 }
 
-bool is_cell_empty(const game* game, position pos)
-{
-        for (size_t i = 0; i < AGENTS_COUNT; ++i) {
-                if (positions_are_equal(game->agents[i].pos, pos)) {
-                        return false;
-                }
-        }
-        for (size_t i = 0; i < FOOD_COUNT; ++i) {
-                if (positions_are_equal(game->food[i].pos, pos)) {
-                        return false;
-                }
-        }
-        for (size_t i = 0; i < WALL_COUNT; ++i) {
-                if (positions_are_equal(game->walls[i].pos, pos)) {
-                        return false;
-                }
-        }
-        
-        return true;
+bool is_cell_empty(const game *game, position pos) {
+	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
+		if (positions_are_equal(game->agents[i].pos, pos)) {
+			return false;
+		}
+	}
+	for (size_t i = 0; i < FOOD_COUNT; ++i) {
+		if (positions_are_equal(game->food[i].pos, pos)) {
+			return false;
+		}
+	}
+	for (size_t i = 0; i < WALLS_COUNT; ++i) {
+		if (positions_are_equal(game->walls[i].pos, pos)) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 int random_int_range(int low, int high) {
@@ -170,34 +170,29 @@ direction random_direction(void) {
 	return (direction)random_int_range(0, 4);
 }
 
-position random_position(void)
-{
-        position result = {
-                random_int_range(0, BOARD_WIDTH),
-                random_int_range(0, BOARD_HEIGHT)
-        };
+position random_position(void) {
+	position result = { random_int_range(0, BOARD_WIDTH), random_int_range(0, BOARD_HEIGHT) };
 
-        return result;
+	return result;
 }
 
-position random_empty_position(const game* game)
-{
-        position result = random_position();
-        size_t it = 0;
-        const size_t MAX_IT = 100;
+position random_empty_position(const game *game) {
+	position result = random_position();
+	size_t it = 0;
+	const size_t MAX_IT = 250;
 
-        while (!is_cell_empty(game, result) && it < MAX_IT) {
-                result = random_position();
-        }
+	while (!is_cell_empty(game, result) && it < MAX_IT) {
+		result = random_position();
+	}
 
-        assert(it < MAX_IT);
-        return result;
+	assert(it < MAX_IT);
+	return result;
 }
 
-agent random_agent(const game* game) {
+agent random_agent(const game *game) {
 	agent a = { 0 };
 
-        a.pos = random_empty_position(game);
+	a.pos = random_empty_position(game);
 	a.direction = random_direction();
 	a.hunder = 100;
 	a.health = 100;
@@ -219,7 +214,7 @@ void initialize_game(game *game) {
 		game->food[i].pos = random_empty_position(game);
 	}
 
-	for (size_t i = 0; i < WALL_COUNT; ++i) {
+	for (size_t i = 0; i < WALLS_COUNT; ++i) {
 		game->walls[i].pos = random_empty_position(game);
 	}
 }
@@ -246,7 +241,7 @@ void render_game(SDL_Renderer *renderer, const game *game) {
 		render_agent(renderer, game, i);
 	}
 
-	const float FOOD_PADDING = 10.f;
+	const float FOOD_PADDING = 12.5f;
 	for (size_t i = 0; i < FOOD_COUNT; ++i) {
 		filledCircleRGBA(renderer,
 				 (int)floorf(game->food[i].pos.x * CELL_WIDTH + CELL_WIDTH * 0.5f),
@@ -257,7 +252,7 @@ void render_game(SDL_Renderer *renderer, const game *game) {
 
 	const float WALL_PADDING = 4.f;
 	scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(WALL_COLOR)));
-	for (size_t i = 0; i < WALL_COUNT; ++i) {
+	for (size_t i = 0; i < WALLS_COUNT; ++i) {
 		SDL_Rect rect = {
 			(int)floorf(game->walls[i].pos.x * CELL_WIDTH + WALL_PADDING),
 			(int)floorf(game->walls[i].pos.y * CELL_HEIGHT + WALL_PADDING),
@@ -270,6 +265,7 @@ void render_game(SDL_Renderer *renderer, const game *game) {
 }
 
 int main(int argc, char *argv[]) {
+	srand(time(0));
 	scc(SDL_Init(SDL_INIT_VIDEO));
 
 	SDL_Window *window =
@@ -295,7 +291,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-	        scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(BACKGROUND_COLOR)));
+		scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(BACKGROUND_COLOR)));
 		scc(SDL_RenderClear(renderer));
 
 		render_board_grid(renderer);
