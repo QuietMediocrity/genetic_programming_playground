@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 static_assert(AGENTS_COUNT + FOOD_COUNT + WALLS_COUNT <= BOARD_WIDTH * BOARD_HEIGHT,
@@ -68,6 +69,22 @@ void print_agent(FILE *stream, const Agent *a) {
 		a->health);
 }
 
+void print_agent_verbose(FILE *stream, const Agent *a) {
+	fprintf(stream, "\nagent:      {\n");
+	fprintf(stream, "\tindex:      %zu\n", a->index);
+	fprintf(stream, "\tpos:        [%d;%d]\n", a->pos.x, a->pos.y);
+	fprintf(stream, "\tc_state:    %d\n", a->current_state);
+	fprintf(stream, "\tdirection:  %s\n", direction_as_cstr(a->direction));
+	fprintf(stream, "\thunger:     %d\n", a->hunger);
+	fprintf(stream, "\thealth:     %d\n", a->health);
+	fprintf(stream, "\tlifetime:   %zu\n", a->lifetime);
+	fprintf(stream, "\thistory:    {\n");
+	for (size_t i = 0; i < a->lifetime; ++i)
+		fprintf(stream, "\t\t%3zu:    %s\n", i, action_as_cstr(a->history[i]));
+	fprintf(stream, "\t}\n");
+	fprintf(stream, "}\n");
+}
+
 Agent *get_ptr_to_agent_at_pos(Game *game, Position pos) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i)
 		if (positions_are_equal(game->agents[i].pos, pos))
@@ -83,8 +100,10 @@ void initialize_game(Game *game) {
 		game->agents[i].direction = random_direction();
 		game->agents[i].hunger = STARTING_HUNGER;
 		game->agents[i].health = STARTING_HEALTH;
+		game->agents[i].lifetime = 0;
+		game->agents[i].history[0] = AA_NOTHING;
 
-		// qm_todo: Remove this later.
+		// qm_todo: improve this later.
 		game->agents[i].direction = i % 4;
 
 		for (size_t j = 0; j < GENES_COUNT; ++j) {
@@ -110,6 +129,13 @@ void game_step(Game *game) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
 		Agent *agent = &game->agents[i];
 
+		agent->lifetime += 1;
+
+		if (agent->lifetime == MAX_LIFETIME) {
+			agent->health = 0;
+			continue;
+		}
+
 		for (size_t j = 0; j < GENES_COUNT; ++j) {
 			Gene *gene = &game->chromosomes[i].genes[j];
 
@@ -124,11 +150,13 @@ void game_step(Game *game) {
 
 			execute_action(game, agent, gene->action);
 			agent->current_state = gene->next_state;
+			break;
 		}
 	}
 
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
-		if (game->agents[i].hunger == LETHAL_HUNGER) {
+		if (game->agents[i].hunger >= LETHAL_HUNGER) {
+			game->agents[i].hunger = LETHAL_HUNGER;
 			game->agents[i].health -= HUNGER_TICK;
 			continue;
 		}
@@ -152,8 +180,6 @@ const char *action_as_cstr(AgentAction a) {
 	switch (a) {
 	case AA_NOTHING: return "AA_NOTHING";
 	case AA_STEP: return "AA_STEP";
-	case AA_EAT: return "AA_EAT";
-	case AA_ATTACK: return "AA_ATTACK";
 	case AA_TURN_LEFT: return "AA_TURN_LEFT";
 	case AA_TURN_RIGHT: return "AA_TURN_RIGHT";
 	case AA_COUNT:
@@ -301,16 +327,12 @@ Environment interpret_environment_infront_of_agent(Game *game, Agent *agent) {
 }
 
 void execute_action(Game *game, Agent *agent, AgentAction action) {
+	agent->history[agent->lifetime] = action;
+
 	switch (action) {
 	case AA_NOTHING: break;
 
-	case AA_STEP:
-		if (interpret_environment_infront_of_agent(game, agent) != ENV_WALL) {
-			move_agent(agent);
-		}
-		break;
-
-	case AA_EAT: {
+	case AA_STEP: {
 		Food *food = get_ptr_to_food_infront_of_agent(game, agent);
 
 		if (food != NULL) {
@@ -319,10 +341,10 @@ void execute_action(Game *game, Agent *agent, AgentAction action) {
 
 			if (agent->hunger < 0)
 				agent->hunger = 0;
-		}
-	} break;
 
-	case AA_ATTACK: {
+			break;
+		}
+
 		Agent *victim = get_ptr_to_agent_infront_of_agent(game, agent);
 
 		if (victim != NULL) {
@@ -331,6 +353,12 @@ void execute_action(Game *game, Agent *agent, AgentAction action) {
 
 			// No check for negative hp here.
 			// We perform all actions first, then declare dead agents.
+
+			break;
+		}
+
+		if (interpret_environment_infront_of_agent(game, agent) != ENV_WALL) {
+			move_agent(agent);
 		}
 	} break;
 

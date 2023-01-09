@@ -17,7 +17,6 @@ void scc(int code); // sdl check code
 void scp(const void *ptr); // sdl check pointer
 
 void clear_board(SDL_Renderer *renderer);
-void render_board_grid(SDL_Renderer *renderer);
 void render_game(SDL_Renderer *renderer, const Game *game);
 
 #endif // !RENDERING_H

@@ -49,19 +49,6 @@ void clear_board(SDL_Renderer *renderer) {
 	scc(SDL_RenderClear(renderer));
 }
 
-void render_board_grid(SDL_Renderer *renderer) {
-	scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(LINE_COLOR)));
-
-	for (float x = 1; x < BOARD_WIDTH; ++x) {
-		scc(SDL_RenderDrawLine(
-			renderer, (int)floorf(x * CELL_WIDTH), 0, (int)floorf(x * CELL_WIDTH), SCREEN_HEIGHT));
-	}
-	for (float y = 1; y < BOARD_HEIGHT; ++y) {
-		scc(SDL_RenderDrawLine(
-			renderer, 0, (int)floorf(y * CELL_HEIGHT), SCREEN_WIDTH, (int)floorf(y * CELL_HEIGHT)));
-	}
-}
-
 void render_agent(SDL_Renderer *renderer, const Game *game, size_t index) {
 	const float AGENT_PADDING = 6.f;
 	const float CELL_WIDTH_PADDING = CELL_WIDTH - AGENT_PADDING * 2;

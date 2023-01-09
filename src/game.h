@@ -15,7 +15,8 @@
 #define STARTING_HEALTH 100
 #define STARTING_HUNGER 50
 #define LETHAL_HUNGER 100
-#define HUNGER_TICK 5
+#define MAX_LIFETIME 100
+#define HUNGER_TICK 20 // qm_todo: I changed it to 20 for debugging. Switch it back to 5.
 
 #include <stddef.h>
 #include <stdio.h>
@@ -40,8 +41,6 @@ typedef enum {
 typedef enum {
 	AA_NOTHING = 0,
 	AA_STEP,
-	AA_EAT,
-	AA_ATTACK,
 	AA_TURN_LEFT,
 	AA_TURN_RIGHT,
 	AA_COUNT,
@@ -71,6 +70,8 @@ typedef struct {
 	AgentState current_state;
 	int hunger;
 	int health;
+	size_t lifetime;
+	AgentAction history[MAX_LIFETIME];
 } Agent;
 
 typedef struct {
@@ -92,6 +93,7 @@ typedef struct {
 void print_gene(FILE *stream, const Gene *gene, size_t agent_index, size_t gene_index);
 void print_chromosome(FILE *stream, const Chromosome *chromosome, size_t agent_index);
 void print_agent(FILE *stream, const Agent *a);
+void print_agent_verbose(FILE *stream, const Agent *a);
 
 Agent *get_ptr_to_agent_at_pos(Game *game, Position pos);
 

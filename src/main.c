@@ -36,6 +36,9 @@ int main(int argc, char *argv[]) {
 			} break;
 			case SDL_KEYDOWN: {
 				switch (event.key.keysym.sym) {
+				case SDLK_q: {
+					quit = 1;
+				} break;
 				case SDLK_r: {
 					initialize_game(&game);
 				} break;
@@ -63,11 +66,17 @@ int main(int argc, char *argv[]) {
 		}
 
 		clear_board(renderer);
-		render_board_grid(renderer);
 		render_game(renderer, &game);
 
 		SDL_RenderPresent(renderer);
 	}
+
+	Agent *oldest_agent = &game.agents[0];
+	for (size_t i = 1; i < AGENTS_COUNT; ++i) {
+		if (game.agents[i].lifetime > oldest_agent->lifetime)
+			oldest_agent = &game.agents[i];
+	}
+	print_agent_verbose(stdout, oldest_agent);
 
 	SDL_Quit();
 	return 0;
