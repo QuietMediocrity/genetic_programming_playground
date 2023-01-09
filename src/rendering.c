@@ -44,8 +44,7 @@ void scp(const void *ptr) // sdl check pointer
 	}
 }
 
-void clear_board(SDL_Renderer *renderer)
-{
+void clear_board(SDL_Renderer *renderer) {
 	scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(BACKGROUND_COLOR)));
 	scc(SDL_RenderClear(renderer));
 }
@@ -53,11 +52,13 @@ void clear_board(SDL_Renderer *renderer)
 void render_board_grid(SDL_Renderer *renderer) {
 	scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(LINE_COLOR)));
 
-	for (int x = 1; x < BOARD_WIDTH; ++x) {
-		scc(SDL_RenderDrawLine(renderer, x * CELL_WIDTH, 0, x * CELL_WIDTH, SCREEN_HEIGHT));
+	for (float x = 1; x < BOARD_WIDTH; ++x) {
+		scc(SDL_RenderDrawLine(
+			renderer, (int)floorf(x * CELL_WIDTH), 0, (int)floorf(x * CELL_WIDTH), SCREEN_HEIGHT));
 	}
-	for (int y = 1; y < BOARD_HEIGHT; ++y) {
-		scc(SDL_RenderDrawLine(renderer, 0, y * CELL_HEIGHT, SCREEN_WIDTH, y * CELL_HEIGHT));
+	for (float y = 1; y < BOARD_HEIGHT; ++y) {
+		scc(SDL_RenderDrawLine(
+			renderer, 0, (int)floorf(y * CELL_HEIGHT), SCREEN_WIDTH, (int)floorf(y * CELL_HEIGHT)));
 	}
 }
 
@@ -67,15 +68,18 @@ void render_agent(SDL_Renderer *renderer, const Game *game, size_t index) {
 	const float CELL_HEIGHT_PADDING = CELL_HEIGHT - AGENT_PADDING * 2;
 	const Agent *a = &game->agents[index];
 
-	const float x1 = agent_directions[a->direction][0] * CELL_WIDTH_PADDING + a->pos.x * CELL_WIDTH + AGENT_PADDING;
-	const float y1 =
-		agent_directions[a->direction][1] * CELL_HEIGHT_PADDING + a->pos.y * CELL_HEIGHT + AGENT_PADDING;
-	const float x2 = agent_directions[a->direction][2] * CELL_WIDTH_PADDING + a->pos.x * CELL_WIDTH + AGENT_PADDING;
-	const float y2 =
-		agent_directions[a->direction][3] * CELL_HEIGHT_PADDING + a->pos.y * CELL_HEIGHT + AGENT_PADDING;
-	const float x3 = agent_directions[a->direction][4] * CELL_WIDTH_PADDING + a->pos.x * CELL_WIDTH + AGENT_PADDING;
-	const float y3 =
-		agent_directions[a->direction][5] * CELL_HEIGHT_PADDING + a->pos.y * CELL_HEIGHT + AGENT_PADDING;
+	const short x1 = (short)(agent_directions[a->direction][0] * CELL_WIDTH_PADDING +
+				 ((float)a->pos.x * CELL_WIDTH + AGENT_PADDING));
+	const short y1 = (short)(agent_directions[a->direction][1] * CELL_HEIGHT_PADDING +
+				 ((float)a->pos.y * CELL_HEIGHT + AGENT_PADDING));
+	const short x2 = (short)(agent_directions[a->direction][2] * CELL_WIDTH_PADDING +
+				 ((float)a->pos.x * CELL_WIDTH + AGENT_PADDING));
+	const short y2 = (short)(agent_directions[a->direction][3] * CELL_HEIGHT_PADDING +
+				 ((float)a->pos.y * CELL_HEIGHT + AGENT_PADDING));
+	const short x3 = (short)(agent_directions[a->direction][4] * CELL_WIDTH_PADDING +
+				 ((float)a->pos.x * CELL_WIDTH + AGENT_PADDING));
+	const short y3 = (short)(agent_directions[a->direction][5] * CELL_HEIGHT_PADDING +
+				 ((float)a->pos.y * CELL_HEIGHT + AGENT_PADDING));
 
 	if (a->health > 0) {
 		filledTrigonColor(renderer, x1, y1, x2, y2, x3, y3, AGENT_COLOR);
@@ -97,9 +101,9 @@ void render_game(SDL_Renderer *renderer, const Game *game) {
 			continue;
 
 		filledCircleRGBA(renderer,
-				 (int)floorf(game->food[i].pos.x * CELL_WIDTH + CELL_WIDTH * 0.5f),
-				 (int)floorf(game->food[i].pos.y * CELL_HEIGHT + CELL_HEIGHT * 0.5f),
-				 (int)floorf(fminf(CELL_WIDTH, CELL_HEIGHT) * 0.5f - FOOD_PADDING),
+				 (short)floorf((float)game->food[i].pos.x * CELL_WIDTH + CELL_WIDTH * 0.5f),
+				 (short)floorf((float)game->food[i].pos.y * CELL_HEIGHT + CELL_HEIGHT * 0.5f),
+				 (short)floorf(fminf(CELL_WIDTH, CELL_HEIGHT) * 0.5f - FOOD_PADDING),
 				 HEX_COLOR(FOOD_COLOR));
 	}
 
@@ -108,8 +112,8 @@ void render_game(SDL_Renderer *renderer, const Game *game) {
 	scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(WALL_COLOR)));
 	for (size_t i = 0; i < WALLS_COUNT; ++i) {
 		SDL_Rect rect = {
-			(int)floorf(game->walls[i].pos.x * CELL_WIDTH + WALL_PADDING),
-			(int)floorf(game->walls[i].pos.y * CELL_HEIGHT + WALL_PADDING),
+			(int)floorf((float)game->walls[i].pos.x * CELL_WIDTH + WALL_PADDING),
+			(int)floorf((float)game->walls[i].pos.y * CELL_HEIGHT + WALL_PADDING),
 			(int)floorf(CELL_WIDTH - 2 * WALL_PADDING),
 			(int)floorf(CELL_HEIGHT - 2 * WALL_PADDING),
 		};

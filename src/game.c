@@ -1,5 +1,9 @@
 #include "game.h"
 
+#include <stdbool.h>
+#include <assert.h>
+#include <stdlib.h>
+
 static_assert(AGENTS_COUNT + FOOD_COUNT + WALLS_COUNT <= BOARD_WIDTH * BOARD_HEIGHT,
 	      "Too many entities. You won't be able to fit all of them on game board.");
 
@@ -134,7 +138,9 @@ const char *env_as_cstr(Environment env) {
 	case ENV_WALL:
 		return "ENV_WALL";
 	case ENV_COUNT:
-		assert(0 && "That's not supposed to happen.");
+        default:
+        assert(0 && "That's not supposed to happen.");
+        return NULL;
 	}
 }
 
@@ -153,7 +159,9 @@ const char *action_as_cstr(AgentAction a) {
 	case AA_TURN_RIGHT:
 		return "AA_TURN_RIGHT";
 	case AA_COUNT:
-		assert(0 && "That's not supposed to happen.");
+        default:
+        assert(0 && "That's not supposed to happen.");
+        return NULL;
 	}
 }
 
@@ -222,11 +230,11 @@ Position random_empty_position(const Game *game) {
 }
 
 Environment random_environment(void) {
-	return random_int_range(0, ENV_COUNT);
+	return (Environment)random_int_range(0, ENV_COUNT);
 }
 
 AgentAction random_action(void) {
-	return random_int_range(0, AA_COUNT);
+	return (AgentAction)random_int_range(0, AA_COUNT);
 }
 
 int mod_int(int first, int second) {
@@ -341,11 +349,11 @@ void execute_action(Game *game, size_t agent_index, AgentAction action) {
 
 	case AA_TURN_LEFT:
 		// this is absolutely brilliant!
-		agent->direction = mod_int(agent->direction + 1, 4);
+		agent->direction = (Direction)mod_int((int)agent->direction + 1, 4);
 		break;
 
 	case AA_TURN_RIGHT:
-		agent->direction = mod_int(agent->direction - 1, 4);
+		agent->direction = (Direction)mod_int((int)agent->direction - 1, 4);
 		break;
 
 	case AA_COUNT:

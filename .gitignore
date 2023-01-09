@@ -1,1 +1,4 @@
 output/*
+scripts/*
+build/*
+.cache

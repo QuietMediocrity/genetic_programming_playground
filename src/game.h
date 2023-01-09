@@ -17,6 +17,9 @@
 #define LETHAL_HUNGER 100
 #define HUNGER_TICK 5
 
+#include <stddef.h>
+#include <stdio.h>
+
 typedef enum {
 	DIR_RIGHT = 0,
 	DIR_UP,

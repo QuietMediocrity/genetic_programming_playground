@@ -1,8 +1,15 @@
 #include "./game.h"
 #include "./rendering.h"
 
+#include <stddef.h>
+#include <time.h>
+
 int main(int argc, char *argv[]) {
-	srand(time(0));
+        (void)argc;
+        (void)argv;
+        
+        printf("hello\n");
+	srand((unsigned int)time(0));
 
 	Game game;
 	initialize_game(&game);
