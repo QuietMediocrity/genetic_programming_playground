@@ -36,8 +36,8 @@ Food *get_ptr_to_food_infront_of_agent(Game *game, Agent *agent);
 Agent *get_ptr_to_agent_infront_of_agent(Game *game, Agent *agent);
 Wall *get_ptr_to_wall_infront_of_agent(Game *game, Agent *agent);
 
-Environment interpret_environment_infront_of_agent(Game *game, size_t agent_index);
-void execute_action(Game *game, size_t agent_index, AgentAction action);
+Environment interpret_environment_infront_of_agent(Game *game, Agent *agent);
+void execute_action(Game *game, Agent *agent, AgentAction action);
 
 void print_gene(FILE *stream, const Gene *gene, size_t agent_index, size_t gene_index) {
 	fprintf(stream,
@@ -56,10 +56,10 @@ void print_chromosome(FILE *stream, const Chromosome *chromosome, size_t agent_i
 	}
 }
 
-void print_agent(FILE *stream, const Agent *a, size_t agent_index) {
+void print_agent(FILE *stream, const Agent *a) {
 	fprintf(stream,
 		"\nindex: %zu\tpos: [%d;%d]\tstate: %d\tdirection: %s\thunger: %d\thealth: %d\t",
-		agent_index,
+		a->index,
 		a->pos.x,
 		a->pos.y,
 		a->current_state,
@@ -68,8 +68,17 @@ void print_agent(FILE *stream, const Agent *a, size_t agent_index) {
 		a->health);
 }
 
+Agent *get_ptr_to_agent_at_pos(Game *game, Position pos) {
+	for (size_t i = 0; i < AGENTS_COUNT; ++i)
+		if (positions_are_equal(game->agents[i].pos, pos))
+			return &game->agents[i];
+
+	return NULL;
+}
+
 void initialize_game(Game *game) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
+		game->agents[i].index = i;
 		game->agents[i].pos = random_empty_position(game);
 		game->agents[i].direction = random_direction();
 		game->agents[i].hunger = STARTING_HUNGER;
@@ -99,20 +108,22 @@ void initialize_game(Game *game) {
 
 void game_step(Game *game) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
+		Agent *agent = &game->agents[i];
+
 		for (size_t j = 0; j < GENES_COUNT; ++j) {
 			Gene *gene = &game->chromosomes[i].genes[j];
 
-			if (gene->current_state != game->agents[i].current_state)
+			if (gene->current_state != agent->current_state)
 				continue;
 
-			if (gene->environment != interpret_environment_infront_of_agent(game, i))
+			if (gene->environment != interpret_environment_infront_of_agent(game, agent))
 				continue;
 
-			if (game->agents[i].health == 0)
+			if (agent->health == 0)
 				continue;
 
-			execute_action(game, i, gene->action);
-			game->agents[i].current_state = gene->next_state;
+			execute_action(game, agent, gene->action);
+			agent->current_state = gene->next_state;
 		}
 	}
 
@@ -126,55 +137,36 @@ void game_step(Game *game) {
 	}
 }
 
-
 const char *env_as_cstr(Environment env) {
 	switch (env) {
-	case ENV_NOTHING:
-		return "ENV_NOTHING";
-	case ENV_AGENT:
-		return "ENV_AGENT";
-	case ENV_FOOD:
-		return "ENV_FOOD";
-	case ENV_WALL:
-		return "ENV_WALL";
+	case ENV_NOTHING: return "ENV_NOTHING";
+	case ENV_AGENT: return "ENV_AGENT";
+	case ENV_FOOD: return "ENV_FOOD";
+	case ENV_WALL: return "ENV_WALL";
 	case ENV_COUNT:
-        default:
-        assert(0 && "That's not supposed to happen.");
-        return NULL;
+	default: assert(0 && "That's not supposed to happen."); return NULL;
 	}
 }
 
 const char *action_as_cstr(AgentAction a) {
 	switch (a) {
-	case AA_NOTHING:
-		return "AA_NOTHING";
-	case AA_STEP:
-		return "AA_STEP";
-	case AA_EAT:
-		return "AA_EAT";
-	case AA_ATTACK:
-		return "AA_ATTACK";
-	case AA_TURN_LEFT:
-		return "AA_TURN_LEFT";
-	case AA_TURN_RIGHT:
-		return "AA_TURN_RIGHT";
+	case AA_NOTHING: return "AA_NOTHING";
+	case AA_STEP: return "AA_STEP";
+	case AA_EAT: return "AA_EAT";
+	case AA_ATTACK: return "AA_ATTACK";
+	case AA_TURN_LEFT: return "AA_TURN_LEFT";
+	case AA_TURN_RIGHT: return "AA_TURN_RIGHT";
 	case AA_COUNT:
-        default:
-        assert(0 && "That's not supposed to happen.");
-        return NULL;
+	default: assert(0 && "That's not supposed to happen."); return NULL;
 	}
 }
 
 const char *direction_as_cstr(Direction d) {
 	switch (d) {
-	case DIR_RIGHT:
-		return "DIR_RIGHT";
-	case DIR_UP:
-		return "DIR_UP";
-	case DIR_LEFT:
-		return "DIR_LEFT";
-	case DIR_DOWN:
-		return "DIR_DOWN";
+	case DIR_RIGHT: return "DIR_RIGHT";
+	case DIR_UP: return "DIR_UP";
+	case DIR_LEFT: return "DIR_LEFT";
+	case DIR_DOWN: return "DIR_DOWN";
 	}
 }
 
@@ -293,9 +285,7 @@ Wall *get_ptr_to_wall_infront_of_agent(Game *game, Agent *agent) {
 	return NULL;
 }
 
-Environment interpret_environment_infront_of_agent(Game *game, size_t agent_index) {
-	Agent *agent = &game->agents[agent_index];
-
+Environment interpret_environment_infront_of_agent(Game *game, Agent *agent) {
 	// This order kind of serves as priority list.
 
 	if (get_ptr_to_food_infront_of_agent(game, agent) != NULL)
@@ -310,15 +300,12 @@ Environment interpret_environment_infront_of_agent(Game *game, size_t agent_inde
 	return ENV_NOTHING;
 }
 
-void execute_action(Game *game, size_t agent_index, AgentAction action) {
-	Agent *agent = &game->agents[agent_index];
-
+void execute_action(Game *game, Agent *agent, AgentAction action) {
 	switch (action) {
-	case AA_NOTHING:
-		break;
+	case AA_NOTHING: break;
 
 	case AA_STEP:
-		if (interpret_environment_infront_of_agent(game, agent_index) != ENV_WALL) {
+		if (interpret_environment_infront_of_agent(game, agent) != ENV_WALL) {
 			move_agent(agent);
 		}
 		break;
@@ -352,14 +339,9 @@ void execute_action(Game *game, size_t agent_index, AgentAction action) {
 		agent->direction = (Direction)mod_int((int)agent->direction + 1, 4);
 		break;
 
-	case AA_TURN_RIGHT:
-		agent->direction = (Direction)mod_int((int)agent->direction - 1, 4);
-		break;
+	case AA_TURN_RIGHT: agent->direction = (Direction)mod_int((int)agent->direction - 1, 4); break;
 
 	case AA_COUNT:
-	default:
-		assert(0 && "This is not supposed to happen, fix the 'action' value.");
-		break;
+	default: assert(0 && "This is not supposed to happen, fix the 'action' value."); break;
 	}
 }
-

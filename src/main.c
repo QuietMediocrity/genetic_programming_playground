@@ -1,14 +1,16 @@
 #include "./game.h"
 #include "./rendering.h"
 
+#include "SDL_events.h"
 #include <stddef.h>
+#include <stdio.h>
 #include <time.h>
 
 int main(int argc, char *argv[]) {
-        (void)argc;
-        (void)argv;
-        
-        printf("hello\n");
+	(void)argc;
+	(void)argv;
+
+	printf("hello\n");
 	srand((unsigned int)time(0));
 
 	Game game;
@@ -42,10 +44,25 @@ int main(int argc, char *argv[]) {
 				} break;
 				}
 			} break;
+			case SDL_MOUSEBUTTONDOWN: {
+				Position click_pos = {
+					(int)floorf((float)event.button.x / CELL_WIDTH),
+					(int)floorf((float)event.button.y / CELL_HEIGHT),
+				};
+
+				Agent *agent_at_pos = get_ptr_to_agent_at_pos(&game, click_pos);
+
+				if (agent_at_pos == NULL) {
+					printf("Click on the agent, dumbass.");
+					break;
+				}
+
+				print_agent(stdout, agent_at_pos);
+			} break;
 			}
 		}
 
-                clear_board(renderer);
+		clear_board(renderer);
 		render_board_grid(renderer);
 		render_game(renderer, &game);
 
@@ -53,6 +70,5 @@ int main(int argc, char *argv[]) {
 	}
 
 	SDL_Quit();
-
 	return 0;
 }

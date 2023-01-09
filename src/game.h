@@ -1,7 +1,7 @@
 #ifndef GAME_H
 #define GAME_H
 
-#define BOARD_WIDTH 48 
+#define BOARD_WIDTH 48
 #define BOARD_HEIGHT 25
 
 #define AGENTS_COUNT 32
@@ -65,6 +65,7 @@ typedef struct {
 } Position;
 
 typedef struct {
+	size_t index;
 	Position pos;
 	Direction direction;
 	AgentState current_state;
@@ -90,7 +91,9 @@ typedef struct {
 
 void print_gene(FILE *stream, const Gene *gene, size_t agent_index, size_t gene_index);
 void print_chromosome(FILE *stream, const Chromosome *chromosome, size_t agent_index);
-void print_agent(FILE *stream, const Agent *a, size_t agent_index);
+void print_agent(FILE *stream, const Agent *a);
+
+Agent *get_ptr_to_agent_at_pos(Game *game, Position pos);
 
 void initialize_game(Game *game);
 void game_step(Game *game);
