@@ -334,6 +334,8 @@ void execute_action(Game *game, Agent *agent, AgentAction action) {
 
 	case AA_STEP: {
 		Food *food = get_ptr_to_food_infront_of_agent(game, agent);
+		Agent *victim = get_ptr_to_agent_infront_of_agent(game, agent);
+		Wall *wall = get_ptr_to_wall_infront_of_agent(game, agent);
 
 		if (food != NULL) {
 			food->quantity -= 1;
@@ -341,23 +343,13 @@ void execute_action(Game *game, Agent *agent, AgentAction action) {
 
 			if (agent->hunger < 0)
 				agent->hunger = 0;
-
-			break;
-		}
-
-		Agent *victim = get_ptr_to_agent_infront_of_agent(game, agent);
-
-		if (victim != NULL) {
+		} else if (victim != NULL) {
 			victim->health -= ATTACK_DMG;
 			agent->health -= RETALIATION_DMG;
 
 			// No check for negative hp here.
 			// We perform all actions first, then declare dead agents.
-
-			break;
-		}
-
-		if (interpret_environment_infront_of_agent(game, agent) != ENV_WALL) {
+		} else if (wall == NULL) {
 			move_agent(agent);
 		}
 	} break;
