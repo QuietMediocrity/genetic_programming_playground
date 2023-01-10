@@ -6,15 +6,25 @@
 #include <stdio.h>
 #include <time.h>
 
+void print_the_state_of_oldest_agent(Game *game)
+{
+	Agent *oldest_agent = &game->agents[0];
+	for (size_t i = 1; i < AGENTS_COUNT; ++i) {
+		if (game->agents[i].lifetime > oldest_agent->lifetime)
+			oldest_agent = &game->agents[i];
+	}
+	print_agent_verbose(stdout, oldest_agent);
+}
+
 int main(int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
 
-	printf("hello\n");
 	srand((unsigned int)time(0));
 
-	Game game;
-	initialize_game(&game);
+	Game games[2] = {0};
+        int current_game = 0;
+	initialize_game(&games[current_game]);
 
 	scc(SDL_Init(SDL_INIT_VIDEO));
 
@@ -40,10 +50,16 @@ int main(int argc, char *argv[]) {
 					quit = 1;
 				} break;
 				case SDLK_r: {
-					initialize_game(&game);
+					initialize_game(&games[current_game]);
 				} break;
 				case SDLK_s: { // qm_todo: later on, make the ticks automatic after delta t, not manual.
-					game_step(&game);
+					game_step(&games[current_game]);
+				} break;
+				case SDLK_n: {
+                                        int next = 1 - current_game;
+                                        print_the_state_of_oldest_agent(&games[current_game]);
+					prepare_next_game(&games[current_game], &games[next]);
+                                        current_game = next;
 				} break;
 				}
 			} break;
@@ -53,7 +69,7 @@ int main(int argc, char *argv[]) {
 					(int)floorf((float)event.button.y / CELL_HEIGHT),
 				};
 
-				Agent *agent_at_pos = get_ptr_to_agent_at_pos(&game, click_pos);
+				Agent *agent_at_pos = get_ptr_to_agent_at_pos(&games[current_game], click_pos);
 
 				if (agent_at_pos == NULL) {
 					printf("Click on the agent, dumbass.");
@@ -66,17 +82,12 @@ int main(int argc, char *argv[]) {
 		}
 
 		clear_board(renderer);
-		render_game(renderer, &game);
+		render_game(renderer, &games[current_game]);
 
 		SDL_RenderPresent(renderer);
 	}
 
-	Agent *oldest_agent = &game.agents[0];
-	for (size_t i = 1; i < AGENTS_COUNT; ++i) {
-		if (game.agents[i].lifetime > oldest_agent->lifetime)
-			oldest_agent = &game.agents[i];
-	}
-	print_agent_verbose(stdout, oldest_agent);
+        print_the_state_of_oldest_agent(&games[current_game]);
 
 	SDL_Quit();
 	return 0;

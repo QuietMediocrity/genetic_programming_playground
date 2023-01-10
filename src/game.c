@@ -1,12 +1,15 @@
 #include "game.h"
 
+#include "style.h"
 #include <stdbool.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static_assert(AGENTS_COUNT + FOOD_COUNT + WALLS_COUNT <= BOARD_WIDTH * BOARD_HEIGHT,
 	      "Too many entities. You won't be able to fit all of them on game board.");
+static_assert(GENES_COUNT % 2 == 0, "Genes count has to be an even number for proper work of evolution.");
 
 Position position_directions[4] = {
 	{ 1, 0 }, // DIR_RIGHT
@@ -29,6 +32,11 @@ Position random_empty_position(const Game *game);
 Environment random_environment(void);
 AgentAction random_action(void);
 
+void initialize_basic_agent_properties(Game *game, Agent *agent, size_t agent_index);
+void initialize_gene(Gene *gene);
+void initialize_food(Game *game);
+void initialize_walls(Game *game);
+
 int mod_int(int first, int second);
 void move_agent(Agent *agent);
 
@@ -40,9 +48,14 @@ Wall *get_ptr_to_wall_infront_of_agent(Game *game, Agent *agent);
 Environment interpret_environment_infront_of_agent(Game *game, Agent *agent);
 void execute_action(Game *game, Agent *agent, AgentAction action);
 
+void mate_agents(const Agent *parent_a, const Agent *parent_b, Agent *child);
+void mutate_agent(Agent *agent);
+int agent_lifetime_comparator(const void *a, const void *b);
+void prepare_next_generation(Game *previous_game, Game *next_game);
+
 void print_gene(FILE *stream, const Gene *gene, size_t agent_index, size_t gene_index) {
 	fprintf(stream,
-		"agent_index: %2zu\tgene_index:  %2zu\tc_state: %d\tenv: %15s\taction: %15s\tn_state: %d\n",
+		"\t\tagent_index: %2zu\tgene_index:  %2zu\tc_state: %d\tenv: %15s\taction: %15s\tn_state: %d\n",
 		agent_index,
 		gene_index,
 		gene->current_state,
@@ -82,6 +95,9 @@ void print_agent_verbose(FILE *stream, const Agent *a) {
 	for (size_t i = 0; i < a->lifetime; ++i)
 		fprintf(stream, "\t\t%3zu:    %s\n", i, action_as_cstr(a->history[i]));
 	fprintf(stream, "\t}\n");
+	fprintf(stream, "\tchromosomes:    {\n");
+	print_chromosome(stream, &a->chromosome, a->index);
+	fprintf(stream, "\t}\n");
 	fprintf(stream, "}\n");
 }
 
@@ -94,35 +110,18 @@ Agent *get_ptr_to_agent_at_pos(Game *game, Position pos) {
 }
 
 void initialize_game(Game *game) {
-	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
-		game->agents[i].index = i;
-		game->agents[i].pos = random_empty_position(game);
-		game->agents[i].direction = random_direction();
-		game->agents[i].hunger = STARTING_HUNGER;
-		game->agents[i].health = STARTING_HEALTH;
-		game->agents[i].lifetime = 0;
-		game->agents[i].history[0] = AA_NOTHING;
+	memset(game, 0, sizeof(*game));
 
-		// qm_todo: improve this later.
-		game->agents[i].direction = i % 4;
+	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
+                initialize_basic_agent_properties(game, &game->agents[i], i);
 
 		for (size_t j = 0; j < GENES_COUNT; ++j) {
-			game->chromosomes[i].genes[j].current_state = random_int_range(0, GENES_COUNT);
-			game->chromosomes[i].genes[j].environment = random_environment();
-			game->chromosomes[i].genes[j].action = random_action();
-			game->chromosomes[i].genes[j].next_state = random_int_range(0, GENES_COUNT);
+			initialize_gene(&game->agents[i].chromosome.genes[j]);
 		}
 	}
 
-	// qm_todo: Yes, they can happen to be on top of each other, but who cares.
-	// Maybe I'll fix it later.
-	for (size_t i = 0; i < FOOD_COUNT; ++i) {
-		game->food[i].pos = random_empty_position(game);
-	}
-
-	for (size_t i = 0; i < WALLS_COUNT; ++i) {
-		game->walls[i].pos = random_empty_position(game);
-	}
+	initialize_food(game);
+	initialize_walls(game);
 }
 
 void game_step(Game *game) {
@@ -137,7 +136,7 @@ void game_step(Game *game) {
 		}
 
 		for (size_t j = 0; j < GENES_COUNT; ++j) {
-			Gene *gene = &game->chromosomes[i].genes[j];
+			Gene *gene = &game->agents[i].chromosome.genes[j];
 
 			if (gene->current_state != agent->current_state)
 				continue;
@@ -145,7 +144,7 @@ void game_step(Game *game) {
 			if (gene->environment != interpret_environment_infront_of_agent(game, agent))
 				continue;
 
-			if (agent->health == 0)
+			if (agent->health <= 0)
 				continue;
 
 			execute_action(game, agent, gene->action);
@@ -252,7 +251,40 @@ Environment random_environment(void) {
 }
 
 AgentAction random_action(void) {
-	return (AgentAction)random_int_range(0, AA_COUNT);
+	return (AgentAction)random_int_range(AA_NOTHING + 1, AA_COUNT);
+}
+
+void initialize_gene(Gene *gene) {
+	gene->current_state = random_int_range(0, GENES_COUNT);
+	gene->environment = random_environment();
+	gene->action = random_action();
+	gene->next_state = random_int_range(0, GENES_COUNT);
+}
+
+void initialize_basic_agent_properties(Game *game, Agent *agent, size_t agent_index) {
+	agent->index = agent_index;
+	agent->pos = random_empty_position(game);
+	agent->direction = random_direction();
+	agent->hunger = STARTING_HUNGER;
+	agent->health = STARTING_HEALTH;
+	agent->lifetime = 0;
+	agent->history[0] = AA_NOTHING;
+
+	// qm_todo: improve this later.
+	agent->direction = agent_index % 4;
+}
+
+void initialize_food(Game *game) {
+	for (size_t i = 0; i < FOOD_COUNT; ++i) {
+		game->food[i].quantity = random_int_range(0, FOOD_QUANTITY_GENERATION_MAX);
+		game->food[i].pos = random_empty_position(game);
+	}
+}
+
+void initialize_walls(Game *game) {
+	for (size_t i = 0; i < WALLS_COUNT; ++i) {
+		game->walls[i].pos = random_empty_position(game);
+	}
 }
 
 int mod_int(int first, int second) {
@@ -329,6 +361,8 @@ Environment interpret_environment_infront_of_agent(Game *game, Agent *agent) {
 void execute_action(Game *game, Agent *agent, AgentAction action) {
 	agent->history[agent->lifetime] = action;
 
+	// printf("Agent %zu performs action: %s\n", agent->index, action_as_cstr(action));
+
 	switch (action) {
 	case AA_NOTHING: break;
 
@@ -338,18 +372,21 @@ void execute_action(Game *game, Agent *agent, AgentAction action) {
 		Wall *wall = get_ptr_to_wall_infront_of_agent(game, agent);
 
 		if (food != NULL) {
+	                printf("\t\tAgent %zu ate the food!\n", agent->index);
 			food->quantity -= 1;
 			agent->hunger -= FOOD_HUNGER_RECOVERY;
 
 			if (agent->hunger < 0)
 				agent->hunger = 0;
 		} else if (victim != NULL) {
+	                printf("\t\tAgent %zu performed an attack!\n", agent->index);
 			victim->health -= ATTACK_DMG;
 			agent->health -= RETALIATION_DMG;
 
 			// No check for negative hp here.
 			// We perform all actions first, then declare dead agents.
 		} else if (wall == NULL) {
+	                printf("\t\tAgent %zu just steped forward and that's it.\n", agent->index);
 			move_agent(agent);
 		}
 	} break;
@@ -365,3 +402,62 @@ void execute_action(Game *game, Agent *agent, AgentAction action) {
 	default: assert(0 && "This is not supposed to happen, fix the 'action' value."); break;
 	}
 }
+
+// qm_todo: different mating strategies? second chances?
+void mate_agents(const Agent *parent_a, const Agent *parent_b, Agent *child) {
+	const size_t OFFSET = GENES_COUNT / 2;
+        const size_t GENE_SIZE = sizeof(Gene);
+
+	memcpy(child->chromosome.genes, parent_a->chromosome.genes, OFFSET * GENE_SIZE);
+	memcpy(child->chromosome.genes + OFFSET, parent_b->chromosome.genes + OFFSET, OFFSET * GENE_SIZE);
+}
+
+void mutate_agent(Agent *agent) {
+	// very crude mutation algorithm, but it works
+	// qm_todo: improve it later.
+	for (size_t i = 0; i < GENES_COUNT; ++i) {
+		if (random_int_range(0, MUTATION_PROBABILITY) < MUTATION_THRESHHOLD) {
+			initialize_gene(&agent->chromosome.genes[i]);
+		}
+	}
+}
+
+int agent_lifetime_comparator(const void *a, const void *b) {
+	return (int)(((const Agent *)b)->lifetime - ((const Agent *)a)->lifetime);
+}
+
+// This function is genious!
+//
+// It sorts agents in descending order based on their lifetime.
+//
+// Best of them (in index range [0; MATING_SELECTION_POOL)) will be used to create
+// chromosomes for the next game.
+//
+// On top of having the two halfs of the best genotypes, a new agent has a chance to undergo a
+// mutation which can change some of his genes (for better of worse).
+//
+// Everything else is just a basic setup of game properties.
+void prepare_next_game(Game *previous_game, Game *next_game) {
+	memset(next_game, 0, sizeof(*next_game));
+
+	qsort(previous_game->agents, AGENTS_COUNT, sizeof(Agent), agent_lifetime_comparator);
+
+	// qm_todo: should I regenerate it or copy from previous game?
+	// initialize_food(next_game);
+	// initialize_walls(next_game);
+	memcpy(next_game->food, previous_game->food, FOOD_COUNT * sizeof(Food));
+	memcpy(next_game->walls, previous_game->walls, WALLS_COUNT * sizeof(Wall));
+
+	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
+		size_t parent_a_index = (size_t)random_int_range(0, MATING_SELECTION_POOL);
+		size_t parent_b_index = (size_t)random_int_range(0, MATING_SELECTION_POOL);
+
+		mate_agents(&previous_game->agents[parent_a_index],
+			    &previous_game->agents[parent_b_index],
+			    &next_game->agents[i]);
+
+		mutate_agent(&next_game->agents[i]);
+                initialize_basic_agent_properties(next_game, &next_game->agents[i], i);
+	}
+}
+
