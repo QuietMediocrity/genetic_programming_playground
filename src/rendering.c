@@ -50,10 +50,13 @@ void clear_board(SDL_Renderer *renderer) {
 }
 
 void render_agent(SDL_Renderer *renderer, const Game *game, size_t index) {
-	const float AGENT_PADDING = 6.f;
+	const float AGENT_PADDING = 1.f; // 6.f;
 	const float CELL_WIDTH_PADDING = CELL_WIDTH - AGENT_PADDING * 2;
 	const float CELL_HEIGHT_PADDING = CELL_HEIGHT - AGENT_PADDING * 2;
 	const Agent *a = &game->agents[index];
+
+	if (a->health <= 0)
+		return;
 
 	const short x1 = (short)(agent_directions[a->direction][0] * CELL_WIDTH_PADDING +
 				 ((float)a->pos.x * CELL_WIDTH + AGENT_PADDING));
@@ -68,13 +71,8 @@ void render_agent(SDL_Renderer *renderer, const Game *game, size_t index) {
 	const short y3 = (short)(agent_directions[a->direction][5] * CELL_HEIGHT_PADDING +
 				 ((float)a->pos.y * CELL_HEIGHT + AGENT_PADDING));
 
-	if (a->health > 0) {
-		filledTrigonColor(renderer, x1, y1, x2, y2, x3, y3, AGENT_COLOR);
-		aatrigonColor(renderer, x1, y1, x2, y2, x3, y3, AGENT_COLOR);
-	} else {
-		filledTrigonColor(renderer, x1, y1, x2, y2, x3, y3, DEAD_AGENT_COLOR);
-		aatrigonColor(renderer, x1, y1, x2, y2, x3, y3, DEAD_AGENT_COLOR);
-	}
+	filledTrigonColor(renderer, x1, y1, x2, y2, x3, y3, AGENT_COLOR);
+	aatrigonColor(renderer, x1, y1, x2, y2, x3, y3, AGENT_COLOR);
 }
 
 void render_game(SDL_Renderer *renderer, const Game *game) {
@@ -82,9 +80,9 @@ void render_game(SDL_Renderer *renderer, const Game *game) {
 		render_agent(renderer, game, i);
 	}
 
-	const float FOOD_PADDING = 12.5f;
+	const float FOOD_PADDING = 0.f; // 12.5f;
 	for (size_t i = 0; i < FOOD_COUNT; ++i) {
-		if (game->food[i].quantity == 0)
+		if (game->food[i].quantity <= 0)
 			continue;
 
 		filledCircleRGBA(renderer,
@@ -94,8 +92,7 @@ void render_game(SDL_Renderer *renderer, const Game *game) {
 				 HEX_COLOR(FOOD_COLOR));
 	}
 
-	// const float WALL_PADDING = 4.f;
-	const float WALL_PADDING = 0.f;
+	const float WALL_PADDING = 0.f; // 4.0f;
 	scc(SDL_SetRenderDrawColor(renderer, HEX_COLOR(WALL_COLOR)));
 	for (size_t i = 0; i < WALLS_COUNT; ++i) {
 		SDL_Rect rect = {

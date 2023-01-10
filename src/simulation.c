@@ -66,13 +66,24 @@ int main(int argc, char *argv[]) {
 				};
 
 				Agent *agent_at_pos = get_ptr_to_agent_at_pos(&games[current_game], click_pos);
+				Food *food_at_pos = get_ptr_to_food_at_pos(&games[current_game], click_pos);
+				Wall *wall_at_pos = get_ptr_to_wall_at_pos(&games[current_game], click_pos);
 
-				if (agent_at_pos == NULL) {
-					printf("Click on the agent, dumbass.");
-					break;
+				if (agent_at_pos != NULL) {
+					print_agent_verbose(stdout, agent_at_pos);
+				}
+				if (food_at_pos != NULL) {
+					fprintf(stdout,
+						"Food at [%d;%d] with quantity: %d\n",
+						food_at_pos->pos.x,
+						food_at_pos->pos.y,
+						food_at_pos->quantity);
+				}
+				if (wall_at_pos != NULL) {
+					fprintf(stdout, "Wall at [%d;%d]\n", wall_at_pos->pos.x, wall_at_pos->pos.y);
 				}
 
-				print_agent(stdout, agent_at_pos);
+				fflush(stdout);
 			} break;
 			}
 		}

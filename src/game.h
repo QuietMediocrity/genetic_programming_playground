@@ -5,13 +5,14 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#define BOARD_WIDTH 48
-#define BOARD_HEIGHT 25
+#define BOARD_WIDTH 100 // 48
+#define BOARD_HEIGHT 100 // 25
 
-#define AGENTS_COUNT 64
-#define FOOD_COUNT 256
-#define WALLS_COUNT 128
+#define AGENTS_COUNT 512 // 64
+#define FOOD_COUNT 2048 // 256
+#define WALLS_COUNT 1024 // 128
 #define GENES_COUNT 128 // 24
+#define STATES_COUNT 4 // 8
 
 #define FOOD_HUNGER_RECOVERY 30
 #define FOOD_QUANTITY_GENERATION_MAX 4
@@ -52,6 +53,16 @@ typedef enum {
 	AA_COUNT,
 } AgentAction;
 
+typedef enum {
+	VA_NOTHING = 0,
+	VA_STEP,
+	VA_FOOD,
+	VA_ATTACK,
+	VA_TURN_LEFT,
+	VA_TURN_RIGHT,
+	VA_COUNT,
+} VerboseAction;
+
 typedef struct {
 	AgentState current_state;
 	AgentState next_state;
@@ -77,8 +88,9 @@ typedef struct {
 	int hunger;
 	int health;
 	size_t lifetime;
-	AgentAction history[MAX_LIFETIME];
-        Chromosome chromosome;
+	VerboseAction action_history[MAX_LIFETIME];
+	int used_genes_history[MAX_LIFETIME];
+	Chromosome chromosome;
 } Agent;
 
 typedef struct {
@@ -96,20 +108,30 @@ typedef struct {
 	Wall walls[WALLS_COUNT];
 } Game;
 
+int mod_int(int first, int second);
+
 void print_gene(FILE *stream, const Gene *gene, size_t agent_index, size_t gene_index);
 void print_chromosome(FILE *stream, const Chromosome *chromosome, size_t agent_index);
 void print_agent(FILE *stream, const Agent *a);
 void print_agent_verbose(FILE *stream, const Agent *a);
 void print_the_state_of_oldest_agent(Game *game);
 
+Position get_position_infront_of_agent(const Agent *agent);
+
+Food *get_ptr_to_food_infront_of_agent(Game *game, Agent *agent);
+Agent *get_ptr_to_agent_infront_of_agent(Game *game, Agent *agent);
+Wall *get_ptr_to_wall_infront_of_agent(Game *game, Agent *agent);
+
 Agent *get_ptr_to_agent_at_pos(Game *game, Position pos);
+Food *get_ptr_to_food_at_pos(Game *game, Position pos);
+Wall *get_ptr_to_wall_at_pos(Game *game, Position pos);
 
 void initialize_game(Game *game);
 void game_step(Game *game);
 void prepare_next_game(Game *previous_game, Game *next_game);
 
-void dump_game_state(const char* filepath, const Game *game);
-void load_game_state(const char* filepath, Game *game);
+void dump_game_state(const char *filepath, const Game *game);
+void load_game_state(const char *filepath, Game *game);
 bool is_everyone_dead(const Game *game);
 
 #endif // GAME_H

@@ -17,8 +17,11 @@ Position position_directions[4] = {
 	{ 0, 1 }, // DIR_DOWN
 };
 
+VerboseAction agent_action_as_verbose_action(AgentAction aa);
+
 const char *env_as_cstr(Environment env);
 const char *action_as_cstr(AgentAction a);
+const char *verbose_action_as_cstr(VerboseAction va);
 const char *direction_as_cstr(Direction d);
 
 bool positions_are_equal(Position first, Position second);
@@ -36,13 +39,7 @@ void initialize_gene(Gene *gene);
 void initialize_food(Game *game);
 void initialize_walls(Game *game);
 
-int mod_int(int first, int second);
 void move_agent(Agent *agent);
-
-Position get_position_infront_of_agent(const Agent *agent);
-Food *get_ptr_to_food_infront_of_agent(Game *game, Agent *agent);
-Agent *get_ptr_to_agent_infront_of_agent(Game *game, Agent *agent);
-Wall *get_ptr_to_wall_infront_of_agent(Game *game, Agent *agent);
 
 Environment interpret_environment_infront_of_agent(Game *game, Agent *agent);
 void execute_action(Game *game, Agent *agent, AgentAction action);
@@ -71,7 +68,7 @@ void print_chromosome(FILE *stream, const Chromosome *chromosome, size_t agent_i
 
 void print_agent(FILE *stream, const Agent *a) {
 	fprintf(stream,
-		"\nindex: %zu\tpos: [%d;%d]\tstate: %d\tdirection: %s\thunger: %d\thealth: %d\t",
+		"index: %zu\tpos: [%d;%d]\tstate: %d\tdirection: %s\thunger: %d\thealth: %d\n",
 		a->index,
 		a->pos.x,
 		a->pos.y,
@@ -91,10 +88,12 @@ void print_agent_verbose(FILE *stream, const Agent *a) {
 	fprintf(stream, "\thealth:     %d\n", a->health);
 	fprintf(stream, "\tlifetime:   %zu\n", a->lifetime);
 	fprintf(stream, "\thistory:    {\n");
-	for (size_t i = 0; i < a->lifetime; ++i)
-		fprintf(stream, "\t\t%3zu:    %s\n", i, action_as_cstr(a->history[i]));
+	for (size_t i = 0; i < a->lifetime; ++i) {
+		fprintf(stream, "\t\t%3zu action:    %s\n", i, verbose_action_as_cstr(a->action_history[i]));
+		fprintf(stream, "\t\t%3zu gene:      %d\n", i, a->used_genes_history[i]);
+	}
 	fprintf(stream, "\t}\n");
-	fprintf(stream, "\tchromosomes:    {\n");
+	fprintf(stream, "\tchromosome:    {\n");
 	print_chromosome(stream, &a->chromosome, a->index);
 	fprintf(stream, "\t}\n");
 	fprintf(stream, "}\n");
@@ -109,10 +108,61 @@ void print_the_state_of_oldest_agent(Game *game) {
 	print_agent_verbose(stdout, oldest_agent);
 }
 
+Food *get_ptr_to_food_infront_of_agent(Game *game, Agent *agent) {
+	Position infront = get_position_infront_of_agent(agent);
+
+	for (size_t i = 0; i < FOOD_COUNT; ++i) {
+		if (game->food[i].quantity > 0 && positions_are_equal(game->food[i].pos, infront))
+			return &game->food[i];
+	}
+
+	return NULL;
+}
+
+Agent *get_ptr_to_agent_infront_of_agent(Game *game, Agent *agent) {
+	Position infront = get_position_infront_of_agent(agent);
+
+	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
+		// qm_todo: do I need to check if agent[i] == *agent?
+		// when will it be the case?
+		if (positions_are_equal(game->agents[i].pos, infront) && game->agents[i].health > 0)
+			return &game->agents[i];
+	}
+
+	return NULL;
+}
+
+Wall *get_ptr_to_wall_infront_of_agent(Game *game, Agent *agent) {
+	Position infront = get_position_infront_of_agent(agent);
+
+	for (size_t i = 0; i < WALLS_COUNT; ++i) {
+		if (positions_are_equal(game->walls[i].pos, infront))
+			return &game->walls[i];
+	}
+
+	return NULL;
+}
+
 Agent *get_ptr_to_agent_at_pos(Game *game, Position pos) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i)
 		if (positions_are_equal(game->agents[i].pos, pos))
 			return &game->agents[i];
+
+	return NULL;
+}
+
+Food *get_ptr_to_food_at_pos(Game *game, Position pos) {
+	for (size_t i = 0; i < FOOD_COUNT; ++i)
+		if (positions_are_equal(game->food[i].pos, pos))
+			return &game->food[i];
+
+	return NULL;
+}
+
+Wall *get_ptr_to_wall_at_pos(Game *game, Position pos) {
+	for (size_t i = 0; i < WALLS_COUNT; ++i)
+		if (positions_are_equal(game->walls[i].pos, pos))
+			return &game->walls[i];
 
 	return NULL;
 }
@@ -136,9 +186,13 @@ void game_step(Game *game) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
 		Agent *agent = &game->agents[i];
 
+		if (agent->health <= 0)
+			continue;
+
 		agent->lifetime += 1;
 
 		if (agent->lifetime == MAX_LIFETIME) {
+			fprintf(stdout, "Agent managed to die of old age!\n");
 			agent->health = 0;
 			continue;
 		}
@@ -152,16 +206,21 @@ void game_step(Game *game) {
 			if (gene->environment != interpret_environment_infront_of_agent(game, agent))
 				continue;
 
-			if (agent->health <= 0)
-				continue;
-
+			// qm_todo: with this approach I favor genes with lover indexes, while
+			// there might be several genes with the same state.
+			// Maybe I should select a pool of all genes that match the preconditions
+			// and execute an action from a random one?
 			execute_action(game, agent, gene->action);
+			agent->used_genes_history[agent->lifetime] = (int)j;
 			agent->current_state = gene->next_state;
 			break;
 		}
 	}
 
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
+		if (game->agents[i].health <= 0)
+			continue;
+
 		if (game->agents[i].hunger >= LETHAL_HUNGER) {
 			game->agents[i].hunger = LETHAL_HUNGER;
 			game->agents[i].health -= HUNGER_TICK;
@@ -169,6 +228,17 @@ void game_step(Game *game) {
 		}
 
 		game->agents[i].hunger += HUNGER_TICK;
+	}
+}
+
+VerboseAction agent_action_as_verbose_action(AgentAction aa) {
+	switch (aa) {
+	case AA_NOTHING: return VA_NOTHING;
+	case AA_STEP: return VA_STEP;
+	case AA_TURN_LEFT: return VA_TURN_LEFT;
+	case AA_TURN_RIGHT: return VA_TURN_RIGHT;
+	case AA_COUNT:
+	default: assert(0 && "That's not supposed to happen."); return VA_COUNT;
 	}
 }
 
@@ -190,6 +260,19 @@ const char *action_as_cstr(AgentAction a) {
 	case AA_TURN_LEFT: return "AA_TURN_LEFT";
 	case AA_TURN_RIGHT: return "AA_TURN_RIGHT";
 	case AA_COUNT:
+	default: assert(0 && "That's not supposed to happen."); return NULL;
+	}
+}
+
+const char *verbose_action_as_cstr(VerboseAction va) {
+	switch (va) {
+	case VA_NOTHING: return "VA_NOTHING";
+	case VA_STEP: return "VA_STEP";
+	case VA_FOOD: return "VA_FOOD";
+	case VA_ATTACK: return "VA_ATTACK";
+	case VA_TURN_LEFT: return "VA_TURN_LEFT";
+	case VA_TURN_RIGHT: return "VA_TURN_RIGHT";
+	case VA_COUNT:
 	default: assert(0 && "That's not supposed to happen."); return NULL;
 	}
 }
@@ -263,10 +346,10 @@ AgentAction random_action(void) {
 }
 
 void initialize_gene(Gene *gene) {
-	gene->current_state = random_int_range(0, GENES_COUNT);
+	gene->current_state = random_int_range(0, STATES_COUNT);
 	gene->environment = random_environment();
 	gene->action = random_action();
-	gene->next_state = random_int_range(0, GENES_COUNT);
+	gene->next_state = random_int_range(0, STATES_COUNT);
 }
 
 void initialize_basic_agent_properties(Game *game, Agent *agent, size_t agent_index) {
@@ -276,7 +359,8 @@ void initialize_basic_agent_properties(Game *game, Agent *agent, size_t agent_in
 	agent->hunger = STARTING_HUNGER;
 	agent->health = STARTING_HEALTH;
 	agent->lifetime = 0;
-	agent->history[0] = AA_NOTHING;
+	agent->action_history[0] = VA_NOTHING;
+	agent->used_genes_history[0] = -1;
 
 	// qm_todo: improve this later.
 	agent->direction = agent_index % 4;
@@ -284,7 +368,7 @@ void initialize_basic_agent_properties(Game *game, Agent *agent, size_t agent_in
 
 void initialize_food(Game *game) {
 	for (size_t i = 0; i < FOOD_COUNT; ++i) {
-		game->food[i].quantity = random_int_range(0, FOOD_QUANTITY_GENERATION_MAX);
+		game->food[i].quantity = 1; // random_int_range(0, FOOD_QUANTITY_GENERATION_MAX);
 		game->food[i].pos = random_empty_position(game);
 	}
 }
@@ -310,45 +394,10 @@ Position get_position_infront_of_agent(const Agent *agent) {
 	Position delta = position_directions[agent->direction];
 	Position next = agent->pos;
 
-	next.x += mod_int(next.x + delta.x, BOARD_WIDTH);
-	next.y += mod_int(next.y + delta.y, BOARD_HEIGHT);
+	next.x = mod_int(next.x + delta.x, BOARD_WIDTH);
+	next.y = mod_int(next.y + delta.y, BOARD_HEIGHT);
 
 	return next;
-}
-
-Food *get_ptr_to_food_infront_of_agent(Game *game, Agent *agent) {
-	Position infront = get_position_infront_of_agent(agent);
-
-	for (size_t i = 0; i < FOOD_COUNT; ++i) {
-		if (game->food[i].quantity > 0 && positions_are_equal(game->food[i].pos, infront))
-			return &game->food[i];
-	}
-
-	return NULL;
-}
-
-Agent *get_ptr_to_agent_infront_of_agent(Game *game, Agent *agent) {
-	Position infront = get_position_infront_of_agent(agent);
-
-	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
-		// qm_todo: do I need to check if agent[i] == *agent?
-		// when will it be the case?
-		if (positions_are_equal(game->agents[i].pos, infront) && game->agents[i].health > 0)
-			return &game->agents[i];
-	}
-
-	return NULL;
-}
-
-Wall *get_ptr_to_wall_infront_of_agent(Game *game, Agent *agent) {
-	Position infront = get_position_infront_of_agent(agent);
-
-	for (size_t i = 0; i < WALLS_COUNT; ++i) {
-		if (positions_are_equal(game->walls[i].pos, infront))
-			return &game->walls[i];
-	}
-
-	return NULL;
 }
 
 Environment interpret_environment_infront_of_agent(Game *game, Agent *agent) {
@@ -367,9 +416,7 @@ Environment interpret_environment_infront_of_agent(Game *game, Agent *agent) {
 }
 
 void execute_action(Game *game, Agent *agent, AgentAction action) {
-	agent->history[agent->lifetime] = action;
-
-	// printf("Agent %zu performs action: %s\n", agent->index, action_as_cstr(action));
+	agent->action_history[agent->lifetime] = agent_action_as_verbose_action(action);
 
 	switch (action) {
 	case AA_NOTHING: break;
@@ -380,21 +427,34 @@ void execute_action(Game *game, Agent *agent, AgentAction action) {
 		Wall *wall = get_ptr_to_wall_infront_of_agent(game, agent);
 
 		if (food != NULL) {
-			printf("\t\tAgent %zu ate the food!\n", agent->index);
+			agent->action_history[agent->lifetime] = VA_FOOD;
+
+			// printf("\t\tAgent %zu ate the food!\n", agent->index);
 			food->quantity -= 1;
 			agent->hunger -= FOOD_HUNGER_RECOVERY;
 
 			if (agent->hunger < 0)
 				agent->hunger = 0;
+
+			// in case of food quantity == 1 on initialization,
+			// I can experiment with occupying the tile after eating the food.
+			move_agent(agent);
 		} else if (victim != NULL) {
-			printf("\t\tAgent %zu performed an attack!\n", agent->index);
+			agent->action_history[agent->lifetime] = VA_ATTACK;
+
+			// printf("\t\tAgent %zu performed an attack!\n", agent->index);
 			victim->health -= ATTACK_DMG;
+			victim->hunger += HUNGER_TICK;
+			if (victim->hunger > LETHAL_HUNGER)
+				victim->hunger = LETHAL_HUNGER;
+
 			agent->health -= RETALIATION_DMG;
+			agent->hunger -= HUNGER_TICK;
 
 			// No check for negative hp here.
 			// We perform all actions first, then declare dead agents.
 		} else if (wall == NULL) {
-			printf("\t\tAgent %zu just steped forward and that's it.\n", agent->index);
+			// printf("\t\tAgent %zu just steped forward and that's it.\n", agent->index);
 			move_agent(agent);
 		}
 	} break;
@@ -453,8 +513,11 @@ void prepare_next_game(Game *previous_game, Game *next_game) {
 	// qm_todo: should I regenerate it or copy from previous game?
 	// initialize_food(next_game);
 	// initialize_walls(next_game);
-	memcpy(next_game->food, previous_game->food, FOOD_COUNT * sizeof(Food));
 	memcpy(next_game->walls, previous_game->walls, WALLS_COUNT * sizeof(Wall));
+	memcpy(next_game->food, previous_game->food, FOOD_COUNT * sizeof(Food));
+        for (size_t i = 0; i < FOOD_COUNT; ++i) {
+               next_game->food[i].quantity = 1; 
+        }
 
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
 		size_t parent_a_index = (size_t)random_int_range(0, MATING_SELECTION_POOL);
@@ -469,12 +532,12 @@ void prepare_next_game(Game *previous_game, Game *next_game) {
 	}
 }
 
-void dump_game_state(const char* filepath, const Game *game) {
+void dump_game_state(const char *filepath, const Game *game) {
 	FILE *state_dump_file_handle = fopen(filepath, "wb");
 
 	if (state_dump_file_handle == NULL) {
 		fprintf(stderr, "ERROR: Couldn't open the file to dump the game's state.\n");
-                return;
+		return;
 	}
 
 	fwrite(game, sizeof(*game), 1, state_dump_file_handle);
@@ -487,12 +550,12 @@ void dump_game_state(const char* filepath, const Game *game) {
 	fclose(state_dump_file_handle);
 }
 
-void load_game_state(const char* filepath, Game *game) {
+void load_game_state(const char *filepath, Game *game) {
 	FILE *state_dump_file_handle = fopen(filepath, "rb");
 
 	if (state_dump_file_handle == NULL) {
 		fprintf(stderr, "ERROR: Couldn't open the file to dump the game's state.\n");
-                return;
+		return;
 	}
 
 	size_t read_chunks_count = fread(game, sizeof(*game), 1, state_dump_file_handle);
@@ -506,10 +569,9 @@ void load_game_state(const char* filepath, Game *game) {
 }
 
 bool is_everyone_dead(const Game *game) {
-        for (size_t i = 0; i < AGENTS_COUNT; ++i) {
-                if (game->agents[i].health > 0)
-                        return false;
-        }
-        return true;
+	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
+		if (game->agents[i].health > 0)
+			return false;
+	}
+	return true;
 }
-
