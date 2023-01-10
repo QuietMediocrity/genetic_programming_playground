@@ -1,6 +1,10 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include <stddef.h>
+#include <stdio.h>
+#include <stdbool.h>
+
 #define BOARD_WIDTH 48
 #define BOARD_HEIGHT 25
 
@@ -22,9 +26,6 @@
 #define MUTATION_PROBABILITY 256
 #define MUTATION_THRESHHOLD 16
 #define MATING_SELECTION_POOL 32
-
-#include <stddef.h>
-#include <stdio.h>
 
 typedef enum {
 	DIR_RIGHT = 0,
@@ -99,6 +100,7 @@ void print_gene(FILE *stream, const Gene *gene, size_t agent_index, size_t gene_
 void print_chromosome(FILE *stream, const Chromosome *chromosome, size_t agent_index);
 void print_agent(FILE *stream, const Agent *a);
 void print_agent_verbose(FILE *stream, const Agent *a);
+void print_the_state_of_oldest_agent(Game *game);
 
 Agent *get_ptr_to_agent_at_pos(Game *game, Position pos);
 
@@ -106,6 +108,8 @@ void initialize_game(Game *game);
 void game_step(Game *game);
 void prepare_next_game(Game *previous_game, Game *next_game);
 
-void dump_game_state(FILE *stream, const Game *game);
+void dump_game_state(const char* filepath, const Game *game);
+void load_game_state(const char* filepath, Game *game);
+bool is_everyone_dead(const Game *game);
 
 #endif // GAME_H

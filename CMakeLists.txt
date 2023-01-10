@@ -31,16 +31,10 @@ set(SOURCES
         src/game.c
         src/rendering.h
         src/rendering.c
-        src/main.c
-)
-message(sources: ${SOURCES})
-
-add_executable(gp ${SOURCES})
-target_link_libraries(gp PRIVATE project_warnings project_options m ${SDL2_LIBRARIES} ${SDL2_GFX_LIBRARIES}) 
-
-add_custom_command(
-        TARGET gp
-        POST_BUILD
-        COMMAND /bin/sh ${CMAKE_SOURCE_DIR}/scripts/copy_executable_to_output.sh
 )
 
+add_executable(simulation src/simulation.c ${SOURCES})
+target_link_libraries(simulation PRIVATE project_warnings project_options m ${SDL2_LIBRARIES} ${SDL2_GFX_LIBRARIES}) 
+
+add_executable(trainer src/trainer.c ${SOURCES})
+target_link_libraries(trainer PRIVATE project_warnings project_options m ${SDL2_LIBRARIES} ${SDL2_GFX_LIBRARIES}) 

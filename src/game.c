@@ -1,7 +1,6 @@
 #include "game.h"
-
 #include "style.h"
-#include <stdbool.h>
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,7 +54,7 @@ void prepare_next_generation(Game *previous_game, Game *next_game);
 
 void print_gene(FILE *stream, const Gene *gene, size_t agent_index, size_t gene_index) {
 	fprintf(stream,
-		"\t\tagent_index: %2zu\tgene_index:  %2zu\tc_state: %d\tenv: %15s\taction: %15s\tn_state: %d\n",
+		"\t\tagent_index: %2zu    gene_index: %3zu    c_state: %3d    env: %15s    action: %15s    n_state: %3d\n",
 		agent_index,
 		gene_index,
 		gene->current_state,
@@ -101,6 +100,15 @@ void print_agent_verbose(FILE *stream, const Agent *a) {
 	fprintf(stream, "}\n");
 }
 
+void print_the_state_of_oldest_agent(Game *game) {
+	Agent *oldest_agent = &game->agents[0];
+	for (size_t i = 1; i < AGENTS_COUNT; ++i) {
+		if (game->agents[i].lifetime > oldest_agent->lifetime)
+			oldest_agent = &game->agents[i];
+	}
+	print_agent_verbose(stdout, oldest_agent);
+}
+
 Agent *get_ptr_to_agent_at_pos(Game *game, Position pos) {
 	for (size_t i = 0; i < AGENTS_COUNT; ++i)
 		if (positions_are_equal(game->agents[i].pos, pos))
@@ -113,7 +121,7 @@ void initialize_game(Game *game) {
 	memset(game, 0, sizeof(*game));
 
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
-                initialize_basic_agent_properties(game, &game->agents[i], i);
+		initialize_basic_agent_properties(game, &game->agents[i], i);
 
 		for (size_t j = 0; j < GENES_COUNT; ++j) {
 			initialize_gene(&game->agents[i].chromosome.genes[j]);
@@ -372,21 +380,21 @@ void execute_action(Game *game, Agent *agent, AgentAction action) {
 		Wall *wall = get_ptr_to_wall_infront_of_agent(game, agent);
 
 		if (food != NULL) {
-	                printf("\t\tAgent %zu ate the food!\n", agent->index);
+			printf("\t\tAgent %zu ate the food!\n", agent->index);
 			food->quantity -= 1;
 			agent->hunger -= FOOD_HUNGER_RECOVERY;
 
 			if (agent->hunger < 0)
 				agent->hunger = 0;
 		} else if (victim != NULL) {
-	                printf("\t\tAgent %zu performed an attack!\n", agent->index);
+			printf("\t\tAgent %zu performed an attack!\n", agent->index);
 			victim->health -= ATTACK_DMG;
 			agent->health -= RETALIATION_DMG;
 
 			// No check for negative hp here.
 			// We perform all actions first, then declare dead agents.
 		} else if (wall == NULL) {
-	                printf("\t\tAgent %zu just steped forward and that's it.\n", agent->index);
+			printf("\t\tAgent %zu just steped forward and that's it.\n", agent->index);
 			move_agent(agent);
 		}
 	} break;
@@ -406,7 +414,7 @@ void execute_action(Game *game, Agent *agent, AgentAction action) {
 // qm_todo: different mating strategies? second chances?
 void mate_agents(const Agent *parent_a, const Agent *parent_b, Agent *child) {
 	const size_t OFFSET = GENES_COUNT / 2;
-        const size_t GENE_SIZE = sizeof(Gene);
+	const size_t GENE_SIZE = sizeof(Gene);
 
 	memcpy(child->chromosome.genes, parent_a->chromosome.genes, OFFSET * GENE_SIZE);
 	memcpy(child->chromosome.genes + OFFSET, parent_b->chromosome.genes + OFFSET, OFFSET * GENE_SIZE);
@@ -457,7 +465,54 @@ void prepare_next_game(Game *previous_game, Game *next_game) {
 			    &next_game->agents[i]);
 
 		mutate_agent(&next_game->agents[i]);
-                initialize_basic_agent_properties(next_game, &next_game->agents[i], i);
+		initialize_basic_agent_properties(next_game, &next_game->agents[i], i);
 	}
+}
+
+void dump_game_state(const char* filepath, const Game *game) {
+	FILE *state_dump_file_handle = fopen(filepath, "wb");
+
+	if (state_dump_file_handle == NULL) {
+		fprintf(stderr, "ERROR: Couldn't open the file to dump the game's state.\n");
+                return;
+	}
+
+	fwrite(game, sizeof(*game), 1, state_dump_file_handle);
+	if (ferror(state_dump_file_handle)) {
+		fprintf(stderr, "ERROR: Couldn't write the file to dump the game's state.\n");
+	} else {
+		fprintf(stdout, "INFO: Game state was successfully written into file.\n");
+	}
+
+	fclose(state_dump_file_handle);
+}
+
+void load_game_state(const char* filepath, Game *game) {
+	FILE *state_dump_file_handle = fopen(filepath, "rb");
+
+	if (state_dump_file_handle == NULL) {
+		fprintf(stderr, "ERROR: Couldn't open the file to dump the game's state.\n");
+                return;
+	}
+
+	size_t read_chars = fread(game, sizeof(*game), 1, state_dump_file_handle);
+	if (ferror(state_dump_file_handle) || read_chars != sizeof(*game)) {
+		fprintf(stderr, "ERROR: Couldn't write the file to dump the game's state.\n");
+	} else {
+		fprintf(stdout, "INFO: Game state was successfully written into file.\n");
+	}
+
+	fclose(state_dump_file_handle);
+}
+
+bool is_everyone_dead(const Game *game) {
+        size_t dead_agents = 0;
+        
+        for (size_t i = 0; i < AGENTS_COUNT; ++i) {
+                if (game->agents[i].health <= 0)
+                        ++dead_agents;
+        }
+
+        return dead_agents == AGENTS_COUNT;
 }
 
