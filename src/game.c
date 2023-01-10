@@ -481,7 +481,7 @@ void dump_game_state(const char* filepath, const Game *game) {
 	if (ferror(state_dump_file_handle)) {
 		fprintf(stderr, "ERROR: Couldn't write the file to dump the game's state.\n");
 	} else {
-		fprintf(stdout, "INFO: Game state was successfully written into file.\n");
+		fprintf(stdout, "INFO: Game state was successfully written into a file.\n");
 	}
 
 	fclose(state_dump_file_handle);
@@ -495,24 +495,21 @@ void load_game_state(const char* filepath, Game *game) {
                 return;
 	}
 
-	size_t read_chars = fread(game, sizeof(*game), 1, state_dump_file_handle);
-	if (ferror(state_dump_file_handle) || read_chars != sizeof(*game)) {
+	size_t read_chunks_count = fread(game, sizeof(*game), 1, state_dump_file_handle);
+	if (ferror(state_dump_file_handle) || read_chunks_count != 1) {
 		fprintf(stderr, "ERROR: Couldn't write the file to dump the game's state.\n");
 	} else {
-		fprintf(stdout, "INFO: Game state was successfully written into file.\n");
+		fprintf(stdout, "INFO: Game state was successfully read from a file.\n");
 	}
 
 	fclose(state_dump_file_handle);
 }
 
 bool is_everyone_dead(const Game *game) {
-        size_t dead_agents = 0;
-        
         for (size_t i = 0; i < AGENTS_COUNT; ++i) {
-                if (game->agents[i].health <= 0)
-                        ++dead_agents;
+                if (game->agents[i].health > 0)
+                        return false;
         }
-
-        return dead_agents == AGENTS_COUNT;
+        return true;
 }
 
