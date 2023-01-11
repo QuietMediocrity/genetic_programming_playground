@@ -11,8 +11,8 @@
 #define AGENTS_COUNT 512 // 64
 #define FOOD_COUNT 2048 // 256
 #define WALLS_COUNT 1024 // 128
-#define GENES_COUNT 128 // 24
-#define STATES_COUNT 4 // 8
+#define GENES_COUNT 24
+#define STATES_COUNT 8
 
 #define FOOD_HUNGER_RECOVERY 30
 #define FOOD_QUANTITY_GENERATION_MAX 4
@@ -21,12 +21,12 @@
 #define STARTING_HEALTH 100
 #define STARTING_HUNGER 50
 #define LETHAL_HUNGER 100
-#define MAX_LIFETIME 100
-#define HUNGER_TICK 10 // qm_todo: I changed it to 20 for debugging. Switch it back to 5.
+#define MAX_LIFETIME 512
+#define HUNGER_TICK 10 // 5 
 
 #define MUTATION_PROBABILITY 256
 #define MUTATION_THRESHHOLD 16
-#define MATING_SELECTION_POOL 32
+#define MATING_SELECTION_POOL 64
 
 typedef enum {
 	DIR_RIGHT = 0,

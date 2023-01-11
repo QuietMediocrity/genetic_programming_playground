@@ -1,5 +1,6 @@
 #include "rendering.h"
 
+#include <SDL2/SDL2_gfxPrimitives.h>
 #include <stdio.h>
 
 #define HEX_COLOR(hex_color)                                                                               \
@@ -71,8 +72,8 @@ void render_agent(SDL_Renderer *renderer, const Game *game, size_t index) {
 	const short y3 = (short)(agent_directions[a->direction][5] * CELL_HEIGHT_PADDING +
 				 ((float)a->pos.y * CELL_HEIGHT + AGENT_PADDING));
 
-	filledTrigonColor(renderer, x1, y1, x2, y2, x3, y3, AGENT_COLOR);
-	aatrigonColor(renderer, x1, y1, x2, y2, x3, y3, AGENT_COLOR);
+	filledTrigonRGBA(renderer, x1, y1, x2, y2, x3, y3, HEX_COLOR(AGENT_COLOR));
+	aatrigonRGBA(renderer, x1, y1, x2, y2, x3, y3, HEX_COLOR(AGENT_COLOR));
 }
 
 void render_game(SDL_Renderer *renderer, const Game *game) {
