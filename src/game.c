@@ -515,9 +515,9 @@ void prepare_next_game(Game *previous_game, Game *next_game) {
 	// initialize_walls(next_game);
 	memcpy(next_game->walls, previous_game->walls, WALLS_COUNT * sizeof(Wall));
 	memcpy(next_game->food, previous_game->food, FOOD_COUNT * sizeof(Food));
-        for (size_t i = 0; i < FOOD_COUNT; ++i) {
-               next_game->food[i].quantity = 1; 
-        }
+	for (size_t i = 0; i < FOOD_COUNT; ++i) {
+		next_game->food[i].quantity = 1;
+	}
 
 	for (size_t i = 0; i < AGENTS_COUNT; ++i) {
 		size_t parent_a_index = (size_t)random_int_range(0, MATING_SELECTION_POOL);
