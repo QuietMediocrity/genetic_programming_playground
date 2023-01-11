@@ -4,7 +4,7 @@
 
 #include "game.h"
 
-#define TRAINING_THRESHHOLD (1024 * 2)
+#define TRAINING_THRESHHOLD 2048 
 
 int main(int argc, char *argv[]) {
 	(void)argc;

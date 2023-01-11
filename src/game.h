@@ -5,13 +5,13 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#define BOARD_WIDTH 100 // 48
-#define BOARD_HEIGHT 100 // 25
+#define BOARD_WIDTH 48
+#define BOARD_HEIGHT 25
 
-#define AGENTS_COUNT 512 // 64
-#define FOOD_COUNT 2048 // 256
-#define WALLS_COUNT 1024 // 128
-#define GENES_COUNT 24
+#define AGENTS_COUNT 128
+#define FOOD_COUNT 256
+#define WALLS_COUNT 64
+#define GENES_COUNT 128
 #define STATES_COUNT 8
 
 #define FOOD_HUNGER_RECOVERY 30
@@ -22,11 +22,11 @@
 #define STARTING_HUNGER 50
 #define LETHAL_HUNGER 100
 #define MAX_LIFETIME 512
-#define HUNGER_TICK 10 // 5 
+#define HUNGER_TICK 5 
 
 #define MUTATION_PROBABILITY 256
 #define MUTATION_THRESHHOLD 16
-#define MATING_SELECTION_POOL 64
+#define MATING_SELECTION_POOL 16 
 
 typedef enum {
 	DIR_RIGHT = 0,
