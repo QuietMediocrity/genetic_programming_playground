@@ -37,7 +37,7 @@ Use ``./build/trainer`` if you want to train them for a predefined number of gen
 | Key                       | Action                                                                  |
 |---------------------------|-------------------------------------------------------------------------|
 | <kbd>r</kbd>              | Regenerate the game board                                               |
-| <kbd>n</kbd>              | Make a next generation based on the best performing agents              |
+| <kbd>n</kbd>              | Make a next generation based on the best-performing agents              |
 | <kbd>s</kbd>              | Step the state of the game                                              |
 | <kbd>q</kbd>              | Quit                                                                    |
 | <kbd>d</kbd>              | Dump the game state into ./output/game_state.bin                        |
